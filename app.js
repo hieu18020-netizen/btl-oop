@@ -568,54 +568,94 @@ function formatPlayDuration(sec){
   return m > 0 ? `${m} phút ${r} giây` : `${r} giây`;
 }
 
+function historyWhen(iso){
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const hm = d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false });
+  const now = new Date();
+  const yest = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+  if (d.toDateString() === now.toDateString()) return `Hôm nay, ${hm}`;
+  if (d.toDateString() === yest.toDateString()) return `Hôm qua, ${hm}`;
+  return `${d.toLocaleDateString("vi-VN")}, ${hm}`;
+}
+
+const HX_ICON_TETRIS = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="6" height="6" rx="1.2"/><rect x="14" y="4" width="6" height="6" rx="1.2"/><rect x="9" y="14" width="6" height="6" rx="1.2"/></svg>`;
+const HX_ICON_CHESS = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="6.5" r="3"/><path d="M9 11h6l-1 5h2.2l1.3 4H6.5l1.3-4H10z"/></svg>`;
+const HX_ICON_TREND = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/></svg>`;
+const HX_ICON_TROPHY = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>`;
+
 function historyRowHtml(h){
-  const when = formatChatTime(h.played_at);
+  const when = historyWhen(h.played_at);
 
   if (h.game_type === "chess") {
     const resText = { win: "Thắng", loss: "Thua", draw: "Hòa" }[h.result] || "—";
     const delta = Number(h.score_delta) || 0;
-    const badgeCls = delta > 0 ? "win" : (delta < 0 ? "loss" : "draw");
-    const badgeText = delta > 0 ? `+${delta}` : (delta < 0 ? `${delta}` : "Hòa");
-    const opp = h.opponent_name ? ` · đấu với ${esc(h.opponent_name)}` : "";
-    const room = h.room_code ? ` · phòng ${esc(h.room_code)}` : "";
-    return `<div class="quest-row history-row">
-      <div class="quest-index history-icon">♟</div>
-      <div class="quest-info">
-        <div class="quest-title">Cờ vua — ${resText}</div>
-        <div class="quest-desc">${when}${opp}${room}</div>
+    const cls = delta > 0 ? "win" : (delta < 0 ? "loss" : "draw");
+    const big = delta > 0 ? `+${delta}` : (delta < 0 ? `${delta}` : "0");
+    const opp = h.opponent_name ? ` <i>•</i> đấu với ${esc(h.opponent_name)}` : "";
+    const room = h.room_code ? ` <i>•</i> phòng ${esc(h.room_code)}` : "";
+    return `<div class="hx-row">
+      <div class="hx-icon chess">${HX_ICON_CHESS}</div>
+      <div class="hx-info">
+        <div class="hx-name">Cờ vua</div>
+        <div class="hx-sub">${esc(when)}${opp}${room}</div>
       </div>
-      <span class="history-badge ${badgeCls}">${badgeText}</span>
+      <div class="hx-result ${cls}"><b>${big}</b><span>${resText}</span></div>
     </div>`;
   }
 
   const score = Number(h.score) || 0;
   const dur = (h.duration_seconds !== null && h.duration_seconds !== undefined)
-    ? ` · ${formatPlayDuration(h.duration_seconds)}` : "";
-  return `<div class="quest-row history-row">
-    <div class="quest-index history-icon">🧱</div>
-    <div class="quest-info">
-      <div class="quest-title">Tetris</div>
-      <div class="quest-desc">${when}${dur}</div>
+    ? ` <i>•</i> ${formatPlayDuration(h.duration_seconds)}` : "";
+  return `<div class="hx-row">
+    <div class="hx-icon tetris">${HX_ICON_TETRIS}</div>
+    <div class="hx-info">
+      <div class="hx-name">Tetris</div>
+      <div class="hx-sub">${esc(when)}${dur}</div>
     </div>
-    <span class="history-badge score">${score.toLocaleString("vi-VN")} điểm</span>
+    <div class="hx-result score"><b>${score.toLocaleString("vi-VN")}</b><span>điểm</span></div>
   </div>`;
 }
 
 function historyView(){
   const filters = [
-    { key: "all",    label: "Tất cả" },
-    { key: "tetris", label: "🧱 Tetris" },
-    { key: "chess",  label: "♟ Cờ vua" },
+    { key: "all",    label: "Tất cả",  icon: "" },
+    { key: "tetris", label: "Tetris",  icon: HX_ICON_TETRIS },
+    { key: "chess",  label: "Cờ vua",  icon: HX_ICON_CHESS },
   ];
   const list = s.gameHistory.filter(h => s.historyFilter === "all" || h.game_type === s.historyFilter);
-  const sm = s.gameHistorySummary;
+  const sm = s.gameHistorySummary || {};
 
-  const statsHtml = sm ? `<div class="history-summary">
-      <div class="history-stat"><div class="history-stat-num">${Number(sm.tetris_games) || 0}</div><div class="history-stat-label">Ván Tetris</div></div>
-      <div class="history-stat"><div class="history-stat-num">${(Number(sm.tetris_best) || 0).toLocaleString("vi-VN")}</div><div class="history-stat-label">Điểm Tetris cao nhất</div></div>
-      <div class="history-stat"><div class="history-stat-num">${Number(sm.chess_games) || 0}</div><div class="history-stat-label">Ván cờ vua</div></div>
-      <div class="history-stat"><div class="history-stat-num">${Number(sm.chess_wins) || 0}/${Number(sm.chess_losses) || 0}/${Number(sm.chess_draws) || 0}</div><div class="history-stat-label">Thắng / Thua / Hòa</div></div>
-    </div>` : "";
+  const tetrisGames = Number(sm.tetris_games) || 0;
+  const chessGames = Number(sm.chess_games) || 0;
+  const wins = Number(sm.chess_wins) || 0;
+  const losses = Number(sm.chess_losses) || 0;
+  const draws = Number(sm.chess_draws) || 0;
+  const winRate = chessGames ? (wins * 100 / chessGames).toFixed(1) : "0.0";
+  const form = s.gameHistory.filter(h => h.game_type === "chess").slice(0, 10)
+    .reduce((sum, h) => sum + (Number(h.score_delta) || 0), 0);
+  const formCls = form > 0 ? "pos" : (form < 0 ? "neg" : "");
+  const formText = form > 0 ? `+${form}` : `${form}`;
+
+  const statsHtml = `<div class="hx-stats">
+      <div class="hx-stat"><div class="hx-stat-icon">${HX_ICON_TETRIS}</div><div>
+        <div class="hx-stat-label">Ván Tetris</div>
+        <div class="hx-stat-num">${String(tetrisGames).padStart(2, "0")}</div>
+        <div class="hx-stat-sub">Điểm cao nhất ${(Number(sm.tetris_best) || 0).toLocaleString("vi-VN")}</div></div></div>
+      <div class="hx-stat"><div class="hx-stat-icon">${HX_ICON_CHESS}</div><div>
+        <div class="hx-stat-label">Ván cờ vua</div>
+        <div class="hx-stat-num">${chessGames.toLocaleString("vi-VN")}</div>
+        <div class="hx-stat-sub">Tổng số trận đã chơi</div></div></div>
+      <div class="hx-stat hl"><div class="hx-stat-icon">${HX_ICON_TREND}</div><div>
+        <div class="hx-stat-label">Tỷ lệ thắng</div>
+        <div class="hx-stat-num">${winRate}%</div>
+        <div class="hx-stat-sub">${wins} thắng · ${draws} hòa</div></div></div>
+      <div class="hx-stat"><div class="hx-stat-icon">${HX_ICON_TROPHY}</div><div>
+        <div class="hx-stat-label">Phong độ</div>
+        <div class="hx-stat-num ${formCls}">${formText}</div>
+        <div class="hx-stat-sub">Trong 10 trận gần đây</div></div></div>
+    </div>`;
 
   const emptyHtml = `<div class="nav-search-empty" style="padding:2rem 1rem">
     <span class="nav-search-empty-icon">${s.gameHistoryLoaded ? "📭" : "⏳"}</span>${s.gameHistoryLoaded ? "Chưa có ván chơi nào" : "Đang tải lịch sử..."}
@@ -624,16 +664,28 @@ function historyView(){
   return `<div class="home fade">
     <div class="gridbg fixed-grid"></div>
     ${navBar()}
-    <main class="content">
-      <section class="section">
-        <div class="section-title">Lịch sử</div>
-        <h3>Lịch sử chơi game</h3>
-        <div class="quest-hint">Hiển thị tối đa 100 ván gần nhất, ván mới nhất ở trên cùng.</div>
-        ${statsHtml}
-        <div class="chibi-filters">
-          ${filters.map(f => `<button type="button" class="chibi-filter-btn${s.historyFilter === f.key ? " active" : ""}" onclick="setHistoryFilter('${f.key}')">${f.label}</button>`).join("")}
+    <main class="content hx">
+      <header class="hx-head">
+        <div>
+          <div class="hx-eyebrow"><span></span>Hoạt động</div>
+          <h1 class="hx-title">Lịch sử chơi</h1>
+          <p class="hx-lead">Xem lại thành tích và phong độ của bạn qua từng ván đấu.</p>
         </div>
-        <div class="leaderboard quest-list">${list.map(historyRowHtml).join("") || emptyHtml}</div>
+        <div class="hx-scope"><small>Phạm vi dữ liệu</small><b>100 ván gần nhất</b></div>
+      </header>
+      ${statsHtml}
+      <section class="hx-card">
+        <div class="hx-card-head">
+          <div>
+            <div class="hx-card-title">Hoạt động gần đây</div>
+            <div class="hx-card-sub">${list.length} kết quả được hiển thị</div>
+          </div>
+          <div class="hx-seg">
+            ${filters.map(f => `<button type="button" class="${s.historyFilter === f.key ? "active" : ""}" onclick="setHistoryFilter('${f.key}')">${f.icon}${f.label}</button>`).join("")}
+          </div>
+        </div>
+        <div class="hx-cols"><span>Trò chơi &amp; thời gian</span><span>Kết quả</span></div>
+        <div class="hx-list">${list.map(historyRowHtml).join("") || emptyHtml}</div>
       </section>
     </main>
   </div>`;
