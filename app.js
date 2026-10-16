@@ -1,13 +1,53 @@
 const API_URL = window.APP_CONFIG ? window.APP_CONFIG.API_URL : "https://maintenance-roman-silly-morning.trycloudflare.com/api";
 
-const achievements = [
-  {icon:"⚔️", label:"Chiến binh", desc:"Thắng 10 trận liên tiếp", earned:true,  rarity:"Huyền thoại"},
-  {icon:"🏆", label:"Vô địch",    desc:"Top 1 bảng xếp hạng",    earned:true,  rarity:"Hiếm"},
-  {icon:"🎯", label:"Bắn tỉa",   desc:"Chính xác 95% cú đánh",  earned:true,  rarity:"Thường"},
-  {icon:"🔥", label:"Bất diệt",  desc:"Không thua 30 ngày",      earned:false, rarity:"Siêu hiếm"},
-  {icon:"💎", label:"Kim cương", desc:"Đạt rank Kim Cương",      earned:false, rarity:"Huyền thoại"},
-  {icon:"⚡", label:"Sấm sét",   desc:"Kết thúc trận trong 3 phút", earned:true, rarity:"Hiếm"},
-];
+// Huy hiệu tính từ dữ liệu thật của người chơi: tổng điểm (cũng là điểm xếp rank), số ván đã chơi
+// và hạng trên bảng xếp hạng. Cùng một danh sách dùng cho hồ sơ của mình và hồ sơ người khác.
+function buildAchievements(score, matches, rankStr){
+  score = Math.max(0, Number(score) || 0);
+  matches = Math.max(0, Number(matches) || 0);
+  const rankNum = parseInt(String(rankStr || "").replace(/\D/g, ""), 10) || 0; // "#3" -> 3, "#-" -> 0
+  const GOLD_AT = 3 * 4 * RANK_STEP;     // 2.400 điểm: vào hạng Vàng
+  const DIAMOND_AT = 6 * 4 * RANK_STEP;  // 4.800 điểm: vào hạng Kim Cương
+  const fmt = n => n.toLocaleString("vi-VN");
+  const goal = (icon, label, text, rarity, cur, target) => ({
+    icon, label, rarity,
+    earned: cur >= target,
+    pct: Math.min(1, cur / target),
+    desc: cur >= target ? text : `${text} (${fmt(Math.min(cur, target))}/${fmt(target)})`,
+  });
+  return [
+    goal("🎮", "Tân thủ",    "Hoàn thành ván đầu tiên",   "Thường",      matches, 1),
+    goal("🔥", "Chăm chỉ",   "Chơi tổng cộng 20 ván",     "Hiếm",        matches, 20),
+    goal("🧱", "Bứt phá",    "Đạt 1.000 điểm",            "Hiếm",        score, 1000),
+    goal("🥇", "Hạng Vàng",  "Đạt hạng Vàng",             "Siêu hiếm",   score, GOLD_AT),
+    goal("💎", "Kim cương",  "Đạt hạng Kim Cương",        "Huyền thoại", score, DIAMOND_AT),
+    // Phải có điểm > 0: tài khoản mới chưa chơi mà đứng hạng 1 (ít người) thì chưa tính là vô địch.
+    { icon: "🏆", label: "Vô địch", desc: "Đứng top 1 bảng xếp hạng", rarity: "Huyền thoại",
+      earned: rankNum === 1 && score > 0, pct: rankNum === 1 && score > 0 ? 1 : 0 },
+  ];
+}
+
+// Tiến độ chung = trung bình tiến độ của từng huy hiệu (huy hiệu đã đạt tính 100%), nên thanh
+// chạy dần theo số ván / điểm chứ không chỉ nhảy khi vừa đạt thêm 1 huy hiệu.
+function achievementProgress(list){
+  const total = list.length;
+  const earned = list.filter(a => a.earned).length;
+  const pct = total ? Math.round(list.reduce((sum, a) => sum + (a.earned ? 1 : a.pct), 0) * 100 / total) : 0;
+  return { total, earned, pct };
+}
+
+function achievementCardHtml(a){
+  const miniBar = (!a.earned && a.pct > 0)
+    ? `<div class="ach-bar"><i style="width:${Math.round(a.pct * 100)}%"></i></div>` : "";
+  return `
+    <div class="achievement${a.earned ? "" : " locked"}">
+      <div class="icon">${a.icon}</div>
+      <strong>${a.label}${a.earned ? " ✓" : ""}</strong>
+      <p>${a.desc}</p>
+      ${miniBar}
+      <span class="rarity" style="color:${rarityColor[a.rarity]}">${a.rarity}</span>
+    </div>`;
+}
 
 let dbLeaderboard = [];
 
@@ -1370,7 +1410,9 @@ function homeView(){
   const displayName = s.nick || s.username || "GameThủ";
   const ini = displayName.slice(0, 2).toUpperCase();
   const myTier = getRankTier(s.userHighScore);
-  const list = s.filter === "earned" ? achievements.filter(a => a.earned) : achievements;
+  const allAch = buildAchievements(s.userHighScore, s.userMatches, s.userRank);
+  const prog = achievementProgress(allAch);
+  const list = s.filter === "earned" ? allAch.filter(a => a.earned) : allAch;
   
   let lbRows = "";
   if (dbLeaderboard.length === 0) {
@@ -1398,13 +1440,7 @@ function homeView(){
     }).join("");
   }
 
-  const achCards = list.map(a => `
-    <div class="achievement${a.earned ? "" : " locked"}">
-      <div class="icon">${a.icon}</div>
-      <strong>${a.label}</strong>
-      <p>${a.desc}</p>
-      <span class="rarity" style="color:${rarityColor[a.rarity]}">${a.rarity}</span>
-    </div>`).join("");
+  const achCards = list.map(achievementCardHtml).join("");
 
   return `<div class="home fade">
     <div class="gridbg fixed-grid"></div>
@@ -1450,10 +1486,10 @@ function homeView(){
               <button class="${s.filter === "earned" ? "active" : ""}" onclick="setFilter('earned')">Đã đạt</button>
             </div>
           </div>
-          <div class="achievements">${achCards}</div>
+          <div class="achievements">${achCards || `<div class="quest-hint">Bạn chưa đạt huy hiệu nào — chơi thêm vài ván nhé!</div>`}</div>
           <div class="progress">
-            <div class="progress-head"><span>Tiến độ hoàn thành</span><b style="color:#8b5cf6">4/6</b></div>
-            <div class="bar"><i></i></div>
+            <div class="progress-head"><span>Tiến độ hoàn thành</span><b style="color:#8b5cf6">${prog.earned}/${prog.total} huy hiệu · ${prog.pct}%</b></div>
+            <div class="bar"><i style="width:${prog.pct}%"></i></div>
           </div>
         </section>
 
@@ -2690,13 +2726,7 @@ function profileModalHtml({ loading, error, data } = {}){
     const name = data.display_name || "Ẩn danh";
     const ini = name.slice(0, 2).toUpperCase();
     const tier = getRankTier(data.high_score);
-    const achCards = achievements.map(a => `
-      <div class="achievement${a.earned ? "" : " locked"}">
-        <div class="icon">${a.icon}</div>
-        <strong>${a.label}</strong>
-        <p>${a.desc}</p>
-        <span class="rarity" style="color:${rarityColor[a.rarity]}">${a.rarity}</span>
-      </div>`).join("");
+    const achCards = buildAchievements(data.high_score, data.total_matches, data.rank).map(achievementCardHtml).join("");
 
     body = `
       <section class="profile profile-modal-section">
