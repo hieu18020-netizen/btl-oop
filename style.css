@@ -745,6 +745,11 @@ label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.12
 .quest-row.done .quest-index{color:#34d399;background:rgba(52,211,153,.14);border-color:rgba(52,211,153,.4)}
 .quest-row.done .quest-title{text-decoration:line-through;opacity:.65}
 .quest-status-pending{color:rgba(255,255,255,.45)}
+.quest-claim-btn{font:inherit;font-size:12.5px;font-weight:700;white-space:nowrap;cursor:pointer;padding:.4rem .85rem;border-radius:999px;border:1px solid rgba(232,201,122,.6);background:linear-gradient(135deg,rgba(232,201,122,.28),rgba(232,201,122,.12));color:#f3dc9a;animation:questClaimPulse 1.8s ease-in-out infinite}
+.quest-claim-btn:hover{background:rgba(232,201,122,.38)}
+.quest-claim-all{font:inherit;font-size:13px;font-weight:700;cursor:pointer;margin:.2rem 0 .9rem;padding:.55rem 1.1rem;border-radius:10px;border:1px solid rgba(232,201,122,.6);background:rgba(232,201,122,.18);color:#f3dc9a}
+.quest-claim-all:hover{background:rgba(232,201,122,.3)}
+@keyframes questClaimPulse{0%,100%{box-shadow:0 0 0 0 rgba(232,201,122,.35)}50%{box-shadow:0 0 0 6px rgba(232,201,122,0)}}
 .quest-hint{font-size:13px;color:rgba(255,255,255,.55);margin:.25rem 0 .6rem}
 
 /* ================== THÔNG BÁO (chuông + panel + toast) ================== */
