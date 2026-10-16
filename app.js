@@ -555,12 +555,13 @@ function historyRowHtml(h){
   }
 
   const score = Number(h.score) || 0;
+  const isSnake = h.game_type === "snake";
   const dur = (h.duration_seconds !== null && h.duration_seconds !== undefined)
     ? ` · ${formatPlayDuration(h.duration_seconds)}` : "";
   return `<div class="quest-row history-row">
-    <div class="quest-index history-icon">🧱</div>
+    <div class="quest-index history-icon">${isSnake ? "🐍" : "🧱"}</div>
     <div class="quest-info">
-      <div class="quest-title">Tetris</div>
+      <div class="quest-title">${isSnake ? "Rắn săn mồi" : "Tetris"}</div>
       <div class="quest-desc">${when}${dur}</div>
     </div>
     <span class="history-badge score">${score.toLocaleString("vi-VN")} điểm</span>
@@ -571,6 +572,7 @@ function historyView(){
   const filters = [
     { key: "all",    label: "Tất cả" },
     { key: "tetris", label: "🧱 Tetris" },
+    { key: "snake",  label: "🐍 Rắn săn mồi" },
     { key: "chess",  label: "♟ Cờ vua" },
   ];
   const list = s.gameHistory.filter(h => s.historyFilter === "all" || h.game_type === s.historyFilter);
@@ -579,6 +581,8 @@ function historyView(){
   const statsHtml = sm ? `<div class="history-summary">
       <div class="history-stat"><div class="history-stat-num">${Number(sm.tetris_games) || 0}</div><div class="history-stat-label">Ván Tetris</div></div>
       <div class="history-stat"><div class="history-stat-num">${(Number(sm.tetris_best) || 0).toLocaleString("vi-VN")}</div><div class="history-stat-label">Điểm Tetris cao nhất</div></div>
+      <div class="history-stat"><div class="history-stat-num">${Number(sm.snake_games) || 0}</div><div class="history-stat-label">Ván Rắn săn mồi</div></div>
+      <div class="history-stat"><div class="history-stat-num">${(Number(sm.snake_best) || 0).toLocaleString("vi-VN")}</div><div class="history-stat-label">Điểm Rắn cao nhất</div></div>
       <div class="history-stat"><div class="history-stat-num">${Number(sm.chess_games) || 0}</div><div class="history-stat-label">Ván cờ vua</div></div>
       <div class="history-stat"><div class="history-stat-num">${Number(sm.chess_wins) || 0}/${Number(sm.chess_losses) || 0}/${Number(sm.chess_draws) || 0}</div><div class="history-stat-label">Thắng / Thua / Hòa</div></div>
     </div>` : "";
@@ -1394,7 +1398,7 @@ function homeView(){
 const GAMES = [
   { id:"tetris",      name:"Tetris",        desc:"Xếp hình kinh điển — leo rank, phá kỷ lục điểm cao.", icon:"🟦", tag:"ARCADE",     color:"#00d4ff", playable:true  },
   { id:"chess",       name:"Cờ Vua",        desc:"Cờ vua online 1vs1 qua mạng — tạo phòng và mời bạn bè vào đấu.", icon:"♟️", tag:"CHIẾN THUẬT", color:"#e8c97a", playable:true  },
-  { id:"snake",       name:"Rắn săn mồi",   desc:"Điều khiển con rắn, ăn mồi và tránh va chạm.",         icon:"🐍", tag:"ARCADE",     color:"#22c55e", playable:false },
+  { id:"snake",       name:"Rắn săn mồi",   desc:"Điều khiển con rắn, ăn mồi và tránh va chạm.",         icon:"🐍", tag:"ARCADE",     color:"#22c55e", playable:true  },
   { id:"2048",        name:"2048",          desc:"Trượt các ô số, kết hợp để đạt ô 2048.",               icon:"🔢", tag:"PUZZLE",     color:"#f97316", playable:false },
   { id:"flappy",      name:"Flappy Bird",   desc:"Vượt qua ống nước — kiểm tra phản xạ của bạn.",        icon:"🐦", tag:"PHẢN XẠ",    color:"#eab308", playable:false },
   { id:"minesweeper", name:"Dò mìn",        desc:"Lật ô, đánh dấu mìn và sống sót đến cuối.",            icon:"💣", tag:"CHIẾN THUẬT",color:"#ef4444", playable:false },
@@ -1496,7 +1500,14 @@ async function fetchChibis(){
   if (!s.token) return;
   try {
     const res = await authFetch(`${API_URL}/chibis`);
-    if (!res.ok) return;
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      s.chibisError = `Lỗi ${res.status}: ${err.detail || "máy chủ không phản hồi đúng"}`;
+      console.error("Lỗi /chibis:", s.chibisError);
+      if (s.view === "shop") render();
+      return;
+    }
+    s.chibisError = null;
     const data = await res.json();
     s.unlockedChibiCodes = new Set((data.chibis || []).filter(c => c.unlocked).map(c => c.code));
     s.chibisLoaded = true;
@@ -1512,6 +1523,8 @@ async function fetchChibis(){
     if (s.view === "chibi" || s.view === "shop") render();
   } catch (err) {
     console.error("Lỗi lấy danh sách chibi:", err);
+    s.chibisError = "Không kết nối được máy chủ (kiểm tra API_URL trong config.js)";
+    if (s.view === "shop") render();
   }
 }
 
@@ -1690,6 +1703,7 @@ function shopView(){
   const items = shopItems();
   let body;
   if (!s.token) body = `<div class="quest-hint">Vui lòng đăng nhập để mua chibi.</div>`;
+  else if (s.chibisError) body = `<div class="quest-hint">⚠️ Không tải được cửa hàng. ${esc(s.chibisError)}</div>`;
   else if (!s.chibisLoaded) body = `<div class="quest-hint">Đang tải cửa hàng...</div>`;
   else if (!items.length) body = `<div class="quest-hint">Bạn đã sở hữu tất cả chibi đang bán. Hãy quay lại sau nhé!</div>`;
   else body = `<div class="chibi-grid">${items.map(shopCard).join("")}</div>`;
@@ -1814,7 +1828,7 @@ async function submitScore(finalScore){
     const res = await authFetch(`${API_URL}/update-score`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ score: finalScore, session_token: s.gameSessionToken })
+      body: JSON.stringify({ score: finalScore, session_token: s.gameSessionToken, game: s.selectedGame === "snake" ? "snake" : "tetris" })
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -1857,6 +1871,9 @@ function render(){
   if (typeof ChessGame !== "undefined") {
     ChessGame.unmount();
   }
+  if (typeof SnakeGame !== "undefined") {
+    SnakeGame.unmount();
+  }
 
   // Chỉ phát animation "fade" khi THỰC SỰ chuyển sang view khác.
   // Nếu vẫn đang ở cùng 1 view (ví dụ chỉ bấm checkbox, đổi filter...),
@@ -1891,6 +1908,11 @@ function render(){
         playerAvatar: s.avatar || "",
         playerScore: s.userHighScore || 0,
         authToken: s.token || ""
+      }));
+    } else if (mountPoint && s.selectedGame === "snake" && typeof SnakeGame !== "undefined") {
+      SnakeGame.mount(mountPoint, Object.assign({}, gameOpts, {
+        onStart: startGameSession,      // chơi lại -> xin phiên chơi mới (token chỉ dùng được 1 lần)
+        highScore: s.userHighScore || 0
       }));
     } else if (mountPoint && typeof TetrisGame !== "undefined") {
       TetrisGame.mount(mountPoint, gameOpts);
