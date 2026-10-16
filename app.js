@@ -106,6 +106,7 @@ let s = {
   notifOpen      : false,
   notifLoaded    : false,
   notifLastId    : null,
+  notifNewIds    : new Set(),  // id thông báo mới lúc mở chuông (để vẫn tô sáng dù số đỏ đã về 0)
   conversations       : [],
   conversationsLoaded : false,
   conversationsError  : false,
@@ -469,6 +470,31 @@ async function fetchQuests(){
   }
 }
 
+let questClaiming = false;
+
+async function claimQuestRequest(url){
+  if (questClaiming || !s.token) return;
+  questClaiming = true;
+  try {
+    const res = await authFetch(url, { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      alert(data.detail || "Không thể nhận vàng");
+    } else if (data.gold !== undefined) {
+      s.gold = Number(data.gold) || 0;
+    }
+  } catch (err) {
+    console.error("Lỗi nhận vàng:", err);
+    alert("Không kết nối được tới máy chủ Backend!");
+  } finally {
+    questClaiming = false;
+  }
+  await fetchQuests(); // tải lại danh sách + số vàng trên thanh menu
+}
+
+function claimQuest(id){ return claimQuestRequest(`${API_URL}/quests/${Number(id)}/claim`); }
+function claimAllQuests(){ return claimQuestRequest(`${API_URL}/quests/claim-all`); }
+
 function questsView(){
   const total = s.quests.length;
   const done = s.quests.filter(q => q.done).length;
@@ -480,10 +506,17 @@ function questsView(){
         <div class="quest-title">${esc(q.title)}</div>
         <div class="quest-desc">${esc(q.description)}</div>
       </div>
-      ${q.done
-        ? `<span class="quest-status">Đã hoàn thành</span>`
-        : `<span class="quest-status quest-status-pending">Chưa hoàn thành</span>`}
+      ${!q.done
+        ? `<span class="quest-status quest-status-pending">Chưa hoàn thành</span>`
+        : q.claimed
+          ? `<span class="quest-status">Đã nhận 🪙 ${Number(q.reward_gold) || 0}</span>`
+          : `<button type="button" class="quest-claim-btn" onclick="claimQuest(${Number(q.id)})">Nhận 🪙 ${Number(q.reward_gold) || 0}</button>`}
     </div>`).join("");
+  const claimable = s.quests.filter(q => q.done && !q.claimed);
+  const claimableGold = claimable.reduce((sum, q) => sum + (Number(q.reward_gold) || 0), 0);
+  const claimAllHtml = claimable.length
+    ? `<button type="button" class="quest-claim-all" onclick="claimAllQuests()">🎁 Nhận tất cả (+🪙 ${claimableGold})</button>`
+    : "";
 
   const emptyHtml = `<div class="nav-search-empty" style="padding:2rem 1rem">
     <span class="nav-search-empty-icon">${s.questsLoaded ? "📭" : "⏳"}</span>${s.questsLoaded ? "Chưa có nhiệm vụ nào" : "Đang tải nhiệm vụ..."}
@@ -496,7 +529,8 @@ function questsView(){
       <section class="section">
         <div class="section-title">Nhiệm vụ</div>
         <h3>Hoàn thành nhiệm vụ (${done}/${total})</h3>
-        <div class="quest-hint">Nhiệm vụ được hệ thống tự ghi nhận khi bạn hoàn thành. Làm xong quay lại trang này để xem.</div>
+        <div class="quest-hint">Nhiệm vụ được hệ thống tự ghi nhận khi bạn hoàn thành. Bấm "Nhận" để lấy vàng thưởng.</div>
+        ${claimAllHtml}
         <div class="quest-progress"><div class="quest-progress-bar" style="width:${pct}%"></div></div>
         <div class="leaderboard quest-list">${rowsHtml || emptyHtml}</div>
       </section>
@@ -555,13 +589,12 @@ function historyRowHtml(h){
   }
 
   const score = Number(h.score) || 0;
-  const isSnake = h.game_type === "snake";
   const dur = (h.duration_seconds !== null && h.duration_seconds !== undefined)
     ? ` · ${formatPlayDuration(h.duration_seconds)}` : "";
   return `<div class="quest-row history-row">
-    <div class="quest-index history-icon">${isSnake ? "🐍" : "🧱"}</div>
+    <div class="quest-index history-icon">🧱</div>
     <div class="quest-info">
-      <div class="quest-title">${isSnake ? "Rắn săn mồi" : "Tetris"}</div>
+      <div class="quest-title">Tetris</div>
       <div class="quest-desc">${when}${dur}</div>
     </div>
     <span class="history-badge score">${score.toLocaleString("vi-VN")} điểm</span>
@@ -572,7 +605,6 @@ function historyView(){
   const filters = [
     { key: "all",    label: "Tất cả" },
     { key: "tetris", label: "🧱 Tetris" },
-    { key: "snake",  label: "🐍 Rắn săn mồi" },
     { key: "chess",  label: "♟ Cờ vua" },
   ];
   const list = s.gameHistory.filter(h => s.historyFilter === "all" || h.game_type === s.historyFilter);
@@ -581,8 +613,6 @@ function historyView(){
   const statsHtml = sm ? `<div class="history-summary">
       <div class="history-stat"><div class="history-stat-num">${Number(sm.tetris_games) || 0}</div><div class="history-stat-label">Ván Tetris</div></div>
       <div class="history-stat"><div class="history-stat-num">${(Number(sm.tetris_best) || 0).toLocaleString("vi-VN")}</div><div class="history-stat-label">Điểm Tetris cao nhất</div></div>
-      <div class="history-stat"><div class="history-stat-num">${Number(sm.snake_games) || 0}</div><div class="history-stat-label">Ván Rắn săn mồi</div></div>
-      <div class="history-stat"><div class="history-stat-num">${(Number(sm.snake_best) || 0).toLocaleString("vi-VN")}</div><div class="history-stat-label">Điểm Rắn cao nhất</div></div>
       <div class="history-stat"><div class="history-stat-num">${Number(sm.chess_games) || 0}</div><div class="history-stat-label">Ván cờ vua</div></div>
       <div class="history-stat"><div class="history-stat-num">${Number(sm.chess_wins) || 0}/${Number(sm.chess_losses) || 0}/${Number(sm.chess_draws) || 0}</div><div class="history-stat-label">Thắng / Thua / Hòa</div></div>
     </div>` : "";
@@ -1398,7 +1428,7 @@ function homeView(){
 const GAMES = [
   { id:"tetris",      name:"Tetris",        desc:"Xếp hình kinh điển — leo rank, phá kỷ lục điểm cao.", icon:"🟦", tag:"ARCADE",     color:"#00d4ff", playable:true  },
   { id:"chess",       name:"Cờ Vua",        desc:"Cờ vua online 1vs1 qua mạng — tạo phòng và mời bạn bè vào đấu.", icon:"♟️", tag:"CHIẾN THUẬT", color:"#e8c97a", playable:true  },
-  { id:"snake",       name:"Rắn săn mồi",   desc:"Điều khiển con rắn, ăn mồi và tránh va chạm.",         icon:"🐍", tag:"ARCADE",     color:"#22c55e", playable:true  },
+  { id:"snake",       name:"Rắn săn mồi",   desc:"Điều khiển con rắn, ăn mồi và tránh va chạm.",         icon:"🐍", tag:"ARCADE",     color:"#22c55e", playable:false },
   { id:"2048",        name:"2048",          desc:"Trượt các ô số, kết hợp để đạt ô 2048.",               icon:"🔢", tag:"PUZZLE",     color:"#f97316", playable:false },
   { id:"flappy",      name:"Flappy Bird",   desc:"Vượt qua ống nước — kiểm tra phản xạ của bạn.",        icon:"🐦", tag:"PHẢN XẠ",    color:"#eab308", playable:false },
   { id:"minesweeper", name:"Dò mìn",        desc:"Lật ô, đánh dấu mìn và sống sót đến cuối.",            icon:"💣", tag:"CHIẾN THUẬT",color:"#ef4444", playable:false },
@@ -1500,14 +1530,7 @@ async function fetchChibis(){
   if (!s.token) return;
   try {
     const res = await authFetch(`${API_URL}/chibis`);
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      s.chibisError = `Lỗi ${res.status}: ${err.detail || "máy chủ không phản hồi đúng"}`;
-      console.error("Lỗi /chibis:", s.chibisError);
-      if (s.view === "shop") render();
-      return;
-    }
-    s.chibisError = null;
+    if (!res.ok) return;
     const data = await res.json();
     s.unlockedChibiCodes = new Set((data.chibis || []).filter(c => c.unlocked).map(c => c.code));
     s.chibisLoaded = true;
@@ -1523,8 +1546,6 @@ async function fetchChibis(){
     if (s.view === "chibi" || s.view === "shop") render();
   } catch (err) {
     console.error("Lỗi lấy danh sách chibi:", err);
-    s.chibisError = "Không kết nối được máy chủ (kiểm tra API_URL trong config.js)";
-    if (s.view === "shop") render();
   }
 }
 
@@ -1703,7 +1724,6 @@ function shopView(){
   const items = shopItems();
   let body;
   if (!s.token) body = `<div class="quest-hint">Vui lòng đăng nhập để mua chibi.</div>`;
-  else if (s.chibisError) body = `<div class="quest-hint">⚠️ Không tải được cửa hàng. ${esc(s.chibisError)}</div>`;
   else if (!s.chibisLoaded) body = `<div class="quest-hint">Đang tải cửa hàng...</div>`;
   else if (!items.length) body = `<div class="quest-hint">Bạn đã sở hữu tất cả chibi đang bán. Hãy quay lại sau nhé!</div>`;
   else body = `<div class="chibi-grid">${items.map(shopCard).join("")}</div>`;
@@ -1828,7 +1848,7 @@ async function submitScore(finalScore){
     const res = await authFetch(`${API_URL}/update-score`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ score: finalScore, session_token: s.gameSessionToken, game: s.selectedGame === "snake" ? "snake" : "tetris" })
+      body: JSON.stringify({ score: finalScore, session_token: s.gameSessionToken })
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -1871,9 +1891,6 @@ function render(){
   if (typeof ChessGame !== "undefined") {
     ChessGame.unmount();
   }
-  if (typeof SnakeGame !== "undefined") {
-    SnakeGame.unmount();
-  }
 
   // Chỉ phát animation "fade" khi THỰC SỰ chuyển sang view khác.
   // Nếu vẫn đang ở cùng 1 view (ví dụ chỉ bấm checkbox, đổi filter...),
@@ -1909,11 +1926,6 @@ function render(){
         playerScore: s.userHighScore || 0,
         authToken: s.token || ""
       }));
-    } else if (mountPoint && s.selectedGame === "snake" && typeof SnakeGame !== "undefined") {
-      SnakeGame.mount(mountPoint, Object.assign({}, gameOpts, {
-        onStart: startGameSession,      // chơi lại -> xin phiên chơi mới (token chỉ dùng được 1 lần)
-        highScore: s.userHighScore || 0
-      }));
     } else if (mountPoint && typeof TetrisGame !== "undefined") {
       TetrisGame.mount(mountPoint, gameOpts);
     }
@@ -1926,6 +1938,7 @@ function go(view, gameId){
   if(gameId) s.selectedGame = gameId;
   s.view = view;
   s.notifOpen = false;
+  s.notifNewIds = new Set();
   if(view === "home") {
     fetchLeaderboard();
     fetchUserStats();
@@ -2158,11 +2171,11 @@ function setFilter(f){
 
 // ================== THÔNG BÁO ==================
 // Thông báo do DATABASE tự tạo (hoàn thành nhiệm vụ, lời mời kết bạn, thành tích...).
-// Chuông ở thanh menu hiện số chưa đọc; frontend hỏi server mỗi 30 giây.
+// Chuông ở thanh menu hiện số chưa đọc (bấm chuông -> về 0); frontend hỏi server mỗi 10 giây.
 // QUAN TRỌNG: cập nhật chuông bằng cách thay đúng khối #notifWrap, KHÔNG gọi render()
 // (render() dựng lại cả trang -> sẽ làm game đang chơi bị khởi động lại).
 
-const NOTIF_POLL_MS = 30000;
+const NOTIF_POLL_MS = 10000;
 let notifPollTimer = null;
 
 const NOTIF_ICONS = { quest: "🎯", achievement: "🏆", friend_request: "👥", system: "🔔" };
@@ -2186,19 +2199,19 @@ function notifBellHtml(){
 
   let panel = "";
   if (s.notifOpen) {
-    const items = s.notifications.map(n => `<div class="notif-item${n.is_read ? "" : " unread"}" onclick="onNotifClick(${Number(n.id)})">
+    const items = s.notifications.map(n => { const isNew = !n.is_read || s.notifNewIds.has(n.id); return `<div class="notif-item${isNew ? " unread" : ""}" onclick="onNotifClick(${Number(n.id)})">
         <div class="notif-icon">${notifIcon(n.type)}</div>
         <div class="notif-body">
           <div class="notif-text">${esc(n.content)}</div>
           <div class="notif-time">${esc(notifTimeAgo(n.created_at))}</div>
         </div>
-        ${n.is_read ? "" : `<span class="notif-dot"></span>`}
-      </div>`).join("");
+        ${isNew ? `<span class="notif-dot"></span>` : ""}
+      </div>`; }).join("");
     const empty = `<div class="notif-empty">${s.notifLoaded ? "📭 Chưa có thông báo nào" : "⏳ Đang tải..."}</div>`;
     panel = `<div class="notif-panel">
         <div class="notif-head">
           <span>Thông báo</span>
-          <button type="button" class="notif-readall" onclick="markAllNotifRead()" ${unread ? "" : "disabled"}>Đánh dấu đã đọc tất cả</button>
+          <button type="button" class="notif-readall" onclick="markAllNotifRead()" ${s.notifNewIds.size ? "" : "disabled"}>Đánh dấu đã đọc tất cả</button>
         </div>
         <div class="notif-list">${items || empty}</div>
       </div>`;
@@ -2224,8 +2237,17 @@ function refreshNotifUI(){
 
 function toggleNotifPanel(){
   s.notifOpen = !s.notifOpen;
-  refreshNotifUI();
-  if (s.notifOpen) fetchNotifications();
+  if (s.notifOpen) {
+    // Mở chuông = đã xem: số đỏ về 0 ngay. Các thông báo mới vẫn được tô sáng trong panel.
+    s.notifNewIds = new Set(s.notifications.filter(n => !n.is_read).map(n => n.id));
+    s.notifications.forEach(n => { n.is_read = true; });
+    s.notifUnread = 0;
+    refreshNotifUI();
+    markAllNotifRead().then(() => fetchNotifications());
+  } else {
+    s.notifNewIds = new Set();
+    refreshNotifUI();
+  }
 }
 
 async function fetchNotifications(fromQuests){
@@ -2240,14 +2262,24 @@ async function fetchNotifications(fromQuests){
     // Lần tải đầu tiên chỉ ghi nhớ mốc, không bật toast cho thông báo cũ.
     const prevLastId = s.notifLastId;
     s.notifLastId = Math.max(prevLastId || 0, maxId);
+    // Panel đang mở: thông báo mới đến coi như đã xem luôn (số đỏ giữ ở 0).
+    const unreadNow = data.unread || 0;
+    if (s.notifOpen && unreadNow > 0) {
+      list.forEach(n => { if (!n.is_read) { s.notifNewIds.add(n.id); n.is_read = true; } });
+      markAllNotifRead();
+    }
     s.notifications = list;
-    s.notifUnread = data.unread || 0;
+    s.notifUnread = s.notifOpen ? 0 : unreadNow;
     s.notifLoaded = true;
     refreshNotifUI();
 
     if (prevLastId !== null) {
-      const fresh = list.filter(n => n.id > prevLastId && !n.is_read).reverse().slice(-3);
+      const fresh = list.filter(n => n.id > prevLastId && (!n.is_read || s.notifNewIds.has(n.id))).reverse().slice(-3);
       fresh.forEach(showNotifToast);
+      // Có lời mời / phản hồi kết bạn mới -> làm mới danh sách bạn bè.
+      if (fresh.some(n => n.type === "friend_request")) {
+        fetchFriends().then(() => { if (s.view === "friends") render(); });
+      }
       // Đang ở trang Nhiệm vụ mà có nhiệm vụ mới hoàn thành -> làm mới danh sách.
       if (!fromQuests && s.view === "quests" && fresh.some(n => n.type === "quest")) fetchQuests();
     }
@@ -2281,6 +2313,7 @@ function stopNotifPolling(){
   s.notifOpen = false;
   s.notifLoaded = false;
   s.notifLastId = null;
+  s.notifNewIds = new Set();
 }
 
 async function markNotifReadOnServer(id){
@@ -2298,6 +2331,7 @@ function onNotifClick(id){
     markNotifReadOnServer(id);
   }
   s.notifOpen = false;
+  s.notifNewIds = new Set();
   if (n.type === "quest") go("quests");
   else if (n.type === "friend_request") go("friends");
   else refreshNotifUI();
@@ -2306,6 +2340,7 @@ function onNotifClick(id){
 async function markAllNotifRead(){
   s.notifications.forEach(n => { n.is_read = true; });
   s.notifUnread = 0;
+  s.notifNewIds = new Set();
   refreshNotifUI();
   try {
     await authFetch(`${API_URL}/notifications/read-all`, { method: "POST" });
