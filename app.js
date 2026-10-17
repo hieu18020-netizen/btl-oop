@@ -1071,7 +1071,7 @@ function pwField(id, placeholder, val, showKey, onInput){
   return `<div style="position:relative">
     <input class="input input-pw" id="${id}" type="${type}" placeholder="${placeholder}" value="${esc(val)}"
       oninput="${onInput}">
-    <button class="eye" type="button" onclick="toggle('${showKey}')">
+    <button class="eye" type="button" onmousedown="event.preventDefault()" onclick="toggle('${showKey}', this)">
       ${s[showKey]?"🙈":"👁"}
     </button>
   </div>`;
@@ -1229,62 +1229,7 @@ function loginView(){
     <main class="auth-right">
       ${cornerPets()}
       <div class="form fade">
-        <div class="pets-row">
-          <div class="pet-box">
-            <div class="pet-rig" data-pet="cat">
-              <div class="cat-orange">
-                <div class="c-eyes">
-                  <div class="c-eye"><div class="pupil"></div></div>
-                  <div class="c-eye"><div class="pupil"></div></div>
-                </div>
-              </div>
-              <div class="pet-neck neck-cat"></div>
-            </div>
-            <div class="pet-base"></div>
-          </div>
-          <div class="pet-box">
-            <div class="pet-rig" data-pet="dog">
-              <div class="dog-brown">
-                <div class="dog-ear-l"></div>
-                <div class="dog-ear-r"></div>
-                <div class="dog-hand"></div>
-                <div class="c-eyes" style="padding-top:12px">
-                  <div class="c-eye"><div class="pupil"></div></div>
-                  <div class="c-eye"><div class="pupil"></div></div>
-                </div>
-                <div class="dog-tongue"></div>
-              </div>
-              <div class="pet-neck neck-dog"></div>
-            </div>
-            <div class="pet-base"></div>
-          </div>
-          <div class="pet-box">
-            <div class="pet-rig" data-pet="owl">
-              <div class="owl-body">
-                <div class="owl-eyes">
-                  <div class="owl-eye"><div class="pupil" style="top:2px;left:2px"></div></div>
-                  <div class="owl-eye"><div class="pupil" style="top:2px;left:2px"></div></div>
-                </div>
-              </div>
-              <div class="pet-neck neck-owl"></div>
-            </div>
-            <div class="owl-branch"></div>
-          </div>
-          <div class="pet-box">
-            <div class="pet-rig" data-pet="rabbit">
-              <div class="rabbit-body">
-                <div class="r-ear-l"></div>
-                <div class="r-ear-r"></div>
-                <div class="r-eyes">
-                  <div class="r-eye"><div class="pupil r-pupil"></div></div>
-                  <div class="r-eye"><div class="pupil r-pupil"></div></div>
-                </div>
-              </div>
-              <div class="pet-neck neck-rabbit"></div>
-            </div>
-            <div class="pet-base"></div>
-          </div>
-        </div>
+        ${buddiesHtml()}
 
         <h2>Đăng nhập</h2>
         <p class="sub">Chưa có tài khoản? <button class="link" onclick="go('register')">Đăng ký miễn phí</button></p>
@@ -2019,6 +1964,7 @@ function render(){
     }
   }
   else                         app.innerHTML = homeView();
+  applyBuddyState();
 }
 
 function go(view, gameId){
@@ -2050,7 +1996,14 @@ function go(view, gameId){
   saveSession();
 }
 
-function toggle(key){ s[key] = !s[key]; render(); }
+function toggle(key, btn){
+  // Nhớ ô mật khẩu đang bấm "mắt" để trả focus lại sau khi dựng lại trang.
+  const inputId = btn && btn.previousElementSibling && btn.previousElementSibling.id;
+  s[key] = !s[key];
+  render();
+  const el = inputId && document.getElementById(inputId);
+  if (el) { el.focus(); const n = el.value.length; try { el.setSelectionRange(n, n); } catch (_) {} }
+}
 
 async function doLogin(e){
   e.preventDefault();
@@ -2061,6 +2014,7 @@ async function doLogin(e){
 
   if (username.length < 8 || password.length < 8) {
     showFieldError("loginErrorBox", "Tài khoản và mật khẩu phải có ít nhất 8 ký tự");
+    buddiesReact("sad", 1600);
     return;
   }
   showFieldError("loginErrorBox", "");
@@ -2100,7 +2054,9 @@ async function doLogin(e){
         saveSession();
       }
     } else {
+      buddyMood = "sad"; // render() ở khối finally sẽ dựng lại trang, trạng thái buồn được áp lại sau đó
       alert("Đăng nhập thất bại: " + (data.detail || "Sai tên đăng nhập hoặc mật khẩu"));
+      buddiesReact("sad", 1800);
     }
   } catch (err) {
     alert("Không kết nối được tới máy chủ Backend!");
@@ -2767,7 +2723,150 @@ function profileModalHtml({ loading, error, data } = {}){
   </div>`;
 }
 
+// ================== NHÂN VẬT KHỐI MÀU Ở TRANG ĐĂNG NHẬP ==================
+// 4 nhân vật: cam, tím, đen, vàng. Khuôn mặt (mắt + mồm) trượt theo con trỏ, thân hơi nghiêng,
+// tròng đen nhìn theo chuột, thỉnh thoảng chớp mắt và "nói chuyện". Phản ứng theo form:
+//  - gõ tên đăng nhập  : cả nhóm nhìn theo con trỏ chữ trong ô, gật đầu mỗi lần gõ
+//  - nhập mật khẩu     : giơ tay che mắt
+//  - bấm hiện mật khẩu : bỏ tay ra, mở mắt tròn nhìn mật khẩu
+//  - đăng nhập sai     : lắc đầu, mồm buồn
+
+function buddyEyes(type){
+  const eye = `<div class="bd-eye"><i class="bd-pupil"></i></div>`;
+  return `<div class="bd-eyes ${type}">${eye}${eye}<b class="bd-hand l"></b><b class="bd-hand r"></b></div>`;
+}
+
+function buddiesHtml(){
+  const buddy = (cls, eyeType, mouth) => `<div class="bd ${cls}">
+      <div class="bd-shape"></div>
+      <div class="bd-face">${buddyEyes(eyeType)}<div class="bd-mouth ${mouth}"></div></div>
+    </div>`;
+  return `<div class="buddies" aria-hidden="true">
+      ${buddy("bd-purple", "sclera", "m-line")}
+      ${buddy("bd-black",  "sclera", "m-line")}
+      ${buddy("bd-yellow", "dot",    "m-line")}
+      ${buddy("bd-orange", "dot",    "m-smile")}
+    </div>`;
+}
+
+let lastMouse = null;
+
+function updateBuddies(clientX, clientY){
+  document.querySelectorAll(".buddies .bd").forEach((bd) => {
+    const r = bd.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height * 0.3; // mặt nằm ở phần trên của khối
+    const dx = clientX - cx;
+    const dy = clientY - cy;
+    const dist = Math.hypot(dx, dy) || 1;
+    const k = Math.min(1, dist / 260);          // càng xa chuột càng quay hết cỡ
+    const fx = (dx / dist) * 11 * k;            // mặt trượt ngang tối đa 11px
+    const fy = (dy / dist) * 6 * k;             // trượt dọc tối đa 6px
+    bd.style.setProperty("--fx", fx.toFixed(1) + "px");
+    bd.style.setProperty("--fy", fy.toFixed(1) + "px");
+    // thân nghiêng nhẹ về phía chuột (khối thấp như nửa tròn cam thì không nghiêng)
+    const lean = bd.classList.contains("bd-orange") ? 0 : -Math.max(-1, Math.min(1, dx / 320)) * 4;
+    bd.style.setProperty("--lean", lean.toFixed(2) + "deg");
+
+    bd.querySelectorAll(".bd-eye").forEach((eye) => {
+      const er = eye.getBoundingClientRect();
+      const ex = er.left + er.width / 2;
+      const ey = er.top + er.height / 2;
+      const a = Math.atan2(clientY - ey, clientX - ex);
+      const reach = eye.parentElement.classList.contains("dot") ? 2 : 3.5;
+      const pupil = eye.firstElementChild;
+      pupil.style.transform = `translate(${(Math.cos(a) * reach).toFixed(1)}px, ${(Math.sin(a) * reach).toFixed(1)}px)`;
+    });
+  });
+}
+
+function resetBuddies(){
+  document.querySelectorAll(".buddies .bd").forEach((bd) => {
+    bd.style.setProperty("--fx", "0px");
+    bd.style.setProperty("--fy", "0px");
+    bd.style.setProperty("--lean", "0deg");
+    bd.querySelectorAll(".bd-pupil").forEach(p => { p.style.transform = ""; });
+  });
+}
+
+// Chớp mắt / nói chuyện ngẫu nhiên. Một bộ đếm chung, dùng được dù trang bị dựng lại nhiều lần.
+setInterval(() => {
+  const now = Date.now();
+  document.querySelectorAll(".buddies .bd").forEach((bd) => {
+    if (!bd._nextBlink) { bd._nextBlink = now + 1200 + Math.random() * 3000; bd._nextTalk = now + 2500 + Math.random() * 5000; }
+    if (now >= bd._nextBlink) {
+      bd.classList.add("blink");
+      setTimeout(() => bd.classList.remove("blink"), 140);
+      bd._nextBlink = now + 2200 + Math.random() * 4500;
+    }
+    if (now >= bd._nextTalk) {
+      const m = bd.querySelector(".bd-mouth");
+      m.classList.add("talk");
+      setTimeout(() => m.classList.remove("talk"), 1400);
+      bd._nextTalk = now + 4000 + Math.random() * 7000;
+    }
+  });
+}, 200);
+
+// ---- phản ứng theo ô đang nhập ----
+let buddyFocusEl = null;   // ô input đang được focus trong trang đăng nhập / đăng ký
+let buddyMood = null;      // "sad" trong ít giây sau khi đăng nhập sai
+
+function buddyInput(t){
+  return (t && t.tagName === "INPUT" && t.closest && t.closest(".auth")) ? t : null;
+}
+
+function buddyLiveFocus(){
+  return (buddyFocusEl && document.body.contains(buddyFocusEl)) ? buddyFocusEl : null;
+}
+
+// Nhìn vào đúng vị trí con trỏ chữ trong ô (ước lượng theo số ký tự đã gõ).
+function lookAtField(el){
+  const r = el.getBoundingClientRect();
+  const x = r.left + 16 + Math.min((el.value || "").length * 8.5, Math.max(0, r.width - 60));
+  updateBuddies(x, r.top + r.height / 2);
+}
+
+function applyBuddyState(){
+  const root = document.querySelector(".buddies");
+  if (!root) return;
+  const el = buddyLiveFocus();
+  const isPw = !!el && el.type === "password";
+  const isPeek = !!el && el.classList.contains("input-pw") && el.type === "text";
+  root.classList.toggle("shy", isPw);
+  root.classList.toggle("peek", isPeek);
+  root.classList.toggle("sad", buddyMood === "sad");
+  if (el && !isPw) lookAtField(el);
+}
+
+function buddiesReact(mood, ms){
+  buddyMood = mood;
+  applyBuddyState();
+  setTimeout(() => { if (buddyMood === mood) { buddyMood = null; applyBuddyState(); } }, ms || 1800);
+}
+
+document.addEventListener("focusin", (e) => {
+  const el = buddyInput(e.target);
+  if (el) { buddyFocusEl = el; applyBuddyState(); }
+});
+document.addEventListener("focusout", (e) => {
+  if (buddyFocusEl === e.target) { buddyFocusEl = null; applyBuddyState(); }
+});
+document.addEventListener("input", (e) => {
+  const el = buddyInput(e.target);
+  if (!el) return;
+  const root = document.querySelector(".buddies");
+  if (!root) return;
+  if (el.type !== "password") lookAtField(el);
+  root.classList.remove("nod");
+  void root.offsetWidth; // chạy lại animation gật đầu
+  root.classList.add("nod");
+});
+document.addEventListener("mouseout", (e) => { if (!e.relatedTarget && !buddyLiveFocus()) resetBuddies(); });
+
 document.addEventListener("mousemove", (event) => {
+  lastMouse = { x: event.clientX, y: event.clientY };
+  if (!buddyLiveFocus()) updateBuddies(event.clientX, event.clientY);
   const pupils = document.querySelectorAll(".pupil");
   pupils.forEach((pupil) => {
     const eye = pupil.parentElement;
