@@ -1048,7 +1048,8 @@ function messagesView(){
 }
 
 function logo(center){
-  const clickable = center ? '' : ' onclick="go(\'home\')" style="cursor:pointer"';
+  // Chưa đăng nhập thì logo chỉ để nhìn, không bấm được (trước đây bấm vào là vào thẳng trang chủ).
+  const clickable = (center || !s.token) ? '' : ' onclick="go(\'home\')" style="cursor:pointer"';
   return `<div class="logo${center?' center-logo':''}"${clickable}>
     <div class="logo-mark">◆</div>
     <span class="logo-name">GameZone</span>
@@ -1967,7 +1968,11 @@ function render(){
   applyBuddyState();
 }
 
+const PUBLIC_VIEWS = ["login", "register", "nickname"]; // các trang không cần đăng nhập
+
 function go(view, gameId){
+  // Chưa đăng nhập mà vào trang cần tài khoản -> đưa về trang đăng nhập, không cho xem như khách.
+  if(!s.token && !PUBLIC_VIEWS.includes(view)) view = "login";
   if(view==="login") s.regOk = false;
   if(gameId) s.selectedGame = gameId;
   s.view = view;
