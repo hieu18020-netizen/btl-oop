@@ -921,3 +921,9 @@ label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.12
 .hx-result.draw b{color:rgba(248,247,244,.75)}
 @media(max-width:900px){.hx-stats{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:560px){.hx-stats{grid-template-columns:1fr}.hx-cols span:first-child{padding-left:0}}
+
+/* Thanh tiến độ nhỏ trên huy hiệu chưa đạt + thanh tiến độ chung */
+.ach-bar{height:4px;margin:0 0 8px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden}
+.ach-bar i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,#8b5cf6,#22d3ee)}
+.bar i{transition:width .5s ease}
+.achievement.locked .rarity{opacity:.8}
