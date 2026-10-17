@@ -1548,9 +1548,10 @@ const CHIBI_GALLERY = [
     code: "3", name: "Tuất Vương", desc: "Chú cún nhỏ năng động",
     rarity: "Hiếm", element: "nature",
     frontImage: "chibi/3/chinhdien.png",
-    frameCount: 11, // chibi 3 có 11 khung chạy: frame_002.png .. frame_012.png
-    // Ảnh bắt đầu từ frame_002 nên cộng 1 vào chỉ số (i=1 -> frame_002.png).
-    frameFileName: (i) => `frame_${String(i + 1).padStart(3, "0")}.png`,
+    // Chỉnh 2 dòng dưới cho khớp ảnh của bạn trong chibi/3/:
+    //   FIRST = số của khung đầu tiên (vd frame_002.png -> 2), frameCount = tổng số khung.
+    frameCount: 11,
+    frameFileName: (i) => `frame_${String(i + 1).padStart(3, "0")}.png`, // i=1 -> frame_002.png (đổi "+ 1" thành "+ 0" nếu ảnh bắt đầu từ frame_001)
     // Config riêng của chibi 3 — đổi số ở đây không ảnh hưởng chibi khác.
     runnerConfig: {
       speed: 78,        // px/giây
