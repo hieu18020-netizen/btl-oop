@@ -1742,47 +1742,69 @@ function shopItems(){
   return CHIBI_GALLERY.filter(c => !isChibiUnlocked(c.code) && (s.chibiPrices[c.code] || 0) > 0 && c.frontImage);
 }
 
-function shopCard(c){
+function shopCard(c, idx){
   const price = s.chibiPrices[c.code] || 0;
-  const color = { "Huyền thoại":"#f59e0b", "Sử thi":"#a855f7", "Hiếm":"#38bdf8", "Thường":"#9ca3af" }[c.rarity] || "rgba(248,247,244,.4)";
+  const color = { "Huyền thoại":"#f59e0b", "Sử thi":"#c084fc", "Hiếm":"#fb923c", "Thường":"#9ca3af" }[c.rarity] || "#9ca3af";
   const elem = c.element ? ELEMENT_TYPES[c.element] : null;
   const tint = elem ? elem.color : "#8b5cf6";
   const fallback = `chibi/${c.code}/${c.frameFileName ? c.frameFileName(1) : "1.png"}`;
   const enough = s.gold >= price;
-  return `<div class="chibi-card" style="--tint:${tint}">
-    <div class="chibi-card-top">
-      <span class="chibi-badge-rarity" style="color:${color};border-color:${color}66">${c.rarity}</span>
-      <span></span>
+  const num = String(idx + 1).padStart(2, "0");
+  return `<article class="sp-card" style="--tint:${tint};--rar:${color};animation-delay:${idx * 70}ms">
+    <div class="sp-card-top">
+      <span class="sp-rarity">✦ ${esc(String(c.rarity).toUpperCase())}</span>
+      <span class="sp-num">${num}</span>
     </div>
-    ${chibiStars(c.rarity)}
-    <div class="chibi-card-avatar-wrap">
-      <div class="chibi-card-avatar">
-        <img src="${esc(c.frontImage)}" alt="${esc(c.name)}" onerror="this.onerror=null;this.src='${esc(fallback)}'">
-      </div>
-      ${elem ? `<span class="chibi-elem-badge" style="background:${elem.color}22;color:${elem.color}">${elem.icon}</span>` : ""}
+    <div class="sp-art">
+      <div class="sp-ring sp-ring-1"></div>
+      <div class="sp-ring sp-ring-2"></div>
+      <img src="${esc(c.frontImage)}" alt="${esc(c.name)}" onerror="this.onerror=null;this.src='${esc(fallback)}'">
+      <div class="sp-shadow"></div>
+      ${elem ? `<span class="sp-elem" style="color:${elem.color}">${elem.icon}</span>` : ""}
     </div>
-    <div class="chibi-card-name">${esc(c.name)}</div>
-    <div class="chibi-card-desc">${esc(c.desc)}</div>
-    <div class="shop-price${enough ? "" : " short"}">🪙 ${price}</div>
-    <button type="button" class="chibi-use-btn shop-buy-btn${enough ? "" : " short"}" ${s.shopBusy ? "disabled" : ""}
-      onclick="buyChibi('${c.code}')">${enough ? "Mua" : "Chưa đủ vàng"}</button>
-  </div>`;
+    <div class="sp-info">
+      <div class="sp-kind">BẠN ĐỒNG HÀNH</div>
+      <div class="sp-name">${esc(c.name)}</div>
+      <div class="sp-desc">${esc(c.desc)}</div>
+    </div>
+    <div class="sp-foot">
+      <div class="sp-price${enough ? "" : " short"}"><i class="sp-coin-sm"></i><b>${price}</b></div>
+      <button type="button" class="sp-buy${enough ? "" : " short"}" ${s.shopBusy ? "disabled" : ""}
+        onclick="buyChibi('${c.code}')"><span>${enough ? "Mua ngay" : "Chưa đủ vàng"}</span><em>${enough ? "→" : "–"}</em></button>
+    </div>
+  </article>`;
 }
 
 function shopView(){
   const items = shopItems();
   let body;
-  if (!s.token) body = `<div class="quest-hint">Vui lòng đăng nhập để mua chibi.</div>`;
-  else if (!s.chibisLoaded) body = `<div class="quest-hint">Đang tải cửa hàng...</div>`;
-  else if (!items.length) body = `<div class="quest-hint">Bạn đã sở hữu tất cả chibi đang bán. Hãy quay lại sau nhé!</div>`;
-  else body = `<div class="chibi-grid">${items.map(shopCard).join("")}</div>`;
+  if (!s.token) body = `<div class="sp-empty">Vui lòng đăng nhập để mua chibi.</div>`;
+  else if (!s.chibisLoaded) body = `<div class="sp-empty">Đang tải cửa hàng...</div>`;
+  else if (!items.length) body = `<div class="sp-empty">Bạn đã sở hữu tất cả chibi đang bán. Hãy quay lại sau nhé!</div>`;
+  else body = `<div class="sp-grid">${items.map(shopCard).join("")}</div>`;
+  const count = (s.token && s.chibisLoaded) ? items.length : 0;
   return `<div class="home fade">
     <div class="gridbg fixed-grid"></div>
     ${navBar()}
-    <main class="content">
-      <div class="section-title">Cửa hàng</div>
-      <div class="quest-hint">Số vàng của bạn: <b>🪙 ${Number(s.gold) || 0}</b> · Hoàn thành nhiệm vụ để nhận thêm vàng</div>
+    <main class="content sp">
+      <header class="sp-hero">
+        <div class="sp-hero-text">
+          <div class="sp-eyebrow"><i></i>KHU CHỢ PHIÊU LƯU</div>
+          <h1 class="sp-title">Góc nhỏ<br>kỳ diệu.</h1>
+          <p class="sp-sub">Chọn một người bạn mới hoặc món đồ may mắn cho hành trình tiếp theo.</p>
+        </div>
+        <div class="sp-wallet">
+          <span>Túi vàng của bạn</span>
+          <b>${Number(s.gold) || 0}</b>
+          <i class="sp-coin"></i>
+        </div>
+      </header>
+      <div class="sp-bar">
+        <span>BỘ SƯU TẬP KỲ NÀY</span>
+        <span><b>${count}</b> vật phẩm đang chờ bạn</span>
+      </div>
       ${body}
+      <div class="sp-note"><i></i><span>Hoàn thành nhiệm vụ mỗi ngày để nhận thêm vàng</span><i></i></div>
     </main>
   </div>`;
 }
