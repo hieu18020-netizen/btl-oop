@@ -937,3 +937,71 @@ label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.12
 .ach-bar i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,#8b5cf6,#22d3ee)}
 .bar i{transition:width .5s ease}
 .achievement.locked .rarity{opacity:.8}
+
+/* ===== Nhân vật khối màu trang đăng nhập ===== */
+.buddies{position:relative;width:300px;max-width:100%;height:200px;margin:0 auto 1.4rem}
+.bd{position:absolute;bottom:0;--fx:0px;--fy:0px;--lean:0deg;--ink:#1a1033;
+  transform-origin:bottom center;transform:skewX(var(--lean));transition:transform .25s cubic-bezier(.3,1.3,.5,1)}
+.bd-shape{position:absolute;inset:0;transform-origin:bottom center;animation:bdBreath 3.8s ease-in-out infinite}
+.bd-face{position:absolute;left:50%;display:flex;flex-direction:column;align-items:center;gap:9px;
+  transform:translate(calc(-50% + var(--fx)),var(--fy));transition:transform .18s ease-out}
+
+.bd-purple{left:74px;width:86px;height:178px;z-index:1;--ink:#150a35}
+.bd-purple .bd-shape{background:#6c2bd9;border-radius:6px 6px 0 0}
+.bd-purple .bd-face{top:30px}
+.bd-purple .bd-shape{animation-delay:-.6s}
+
+.bd-black{left:146px;width:58px;height:120px;z-index:2;--ink:#e9e9e9}
+.bd-black .bd-shape{background:#1b1b1d;border-radius:5px 5px 0 0;animation-delay:-1.4s}
+.bd-black .bd-face{top:24px}
+
+.bd-yellow{left:202px;width:68px;height:104px;z-index:3;--ink:#2a2200}
+.bd-yellow .bd-shape{background:#f7c91c;border-radius:34px 34px 0 0;animation-delay:-2.2s}
+.bd-yellow .bd-face{top:26px}
+
+.bd-orange{left:4px;width:150px;height:76px;z-index:4;--ink:#2b1200}
+.bd-orange .bd-shape{background:#ff7a1c;border-radius:75px 75px 0 0;animation-delay:-3s}
+.bd-orange .bd-face{top:24px}
+
+.bd-eyes{display:flex;gap:14px}
+.bd-eye{position:relative;display:grid;place-items:center;transition:transform .09s}
+.bd-eyes.sclera .bd-eye{width:15px;height:15px;border-radius:50%;background:#fff}
+.bd-eyes.dot .bd-eye{width:11px;height:11px;border-radius:50%}
+.bd-pupil{display:block;width:7px;height:7px;border-radius:50%;background:#111;transition:transform .08s linear}
+.bd-eyes.dot .bd-pupil{width:9px;height:9px;background:var(--ink)}
+.bd.blink .bd-eye{transform:scaleY(.08)}
+/* nhập mật khẩu: giơ tay che mắt */
+.bd-eyes{position:relative}
+.bd-hand{position:absolute;top:-4px;width:22px;height:21px;border-radius:11px;background:var(--hand,#0006);z-index:2;
+  opacity:0;transform:translateY(40px) scale(.7);transition:transform .32s cubic-bezier(.3,1.6,.5,1),opacity .2s;pointer-events:none}
+.bd-hand.l{left:-5px}
+.bd-hand.r{right:-5px}
+.buddies.shy .bd-hand{opacity:1;transform:none}
+.buddies.shy .bd-face{transform:translate(calc(-50% + var(--fx)),calc(var(--fy) + 3px))}
+.bd-purple{--hand:#5a22bd}.bd-black{--hand:#38383d}.bd-yellow{--hand:#e3b511}.bd-orange{--hand:#ea6a0c}
+/* bấm hiện mật khẩu: bỏ tay ra, mắt tròn, mồm "ồ" */
+.buddies.peek .bd-eyes.sclera .bd-eye{transform:scale(1.18)}
+.buddies.peek .bd-mouth{width:10px;height:10px;border:0;border-radius:50%;background:var(--ink)}
+/* đăng nhập sai: lắc đầu, mồm buồn */
+.buddies.sad .bd-mouth{width:15px;height:7px;background:transparent;border:0;border-top:3px solid var(--ink);border-radius:15px 15px 0 0}
+.buddies.sad .bd-face{animation:bdShake .5s ease-in-out 3}
+@keyframes bdShake{
+  0%,100%{transform:translate(calc(-50% + var(--fx)),var(--fy))}
+  25%{transform:translate(calc(-50% + var(--fx) - 8px),var(--fy))}
+  75%{transform:translate(calc(-50% + var(--fx) + 8px),var(--fy))}}
+/* gõ chữ: gật đầu */
+.buddies.nod .bd-face{animation:bdNod .2s ease-out}
+@keyframes bdNod{50%{transform:translate(calc(-50% + var(--fx)),calc(var(--fy) + 4px))}}
+
+.bd-mouth{background:var(--ink);transition:all .18s}
+.bd-mouth.m-line{width:13px;height:2.5px;border-radius:3px}
+.bd-mouth.m-smile{width:22px;height:11px;background:transparent;border-bottom:3px solid var(--ink);border-radius:0 0 22px 22px}
+/* rê chuột vào nhân vật -> cười */
+.buddies:not(.shy):not(.peek):not(.sad) .bd:hover .bd-mouth.m-line{width:16px;height:8px;background:transparent;border-bottom:3px solid var(--ink);border-radius:0 0 16px 16px}
+.bd-mouth.talk.m-line{animation:bdTalkLine .32s ease-in-out 4 alternate}
+.bd-mouth.talk.m-smile{animation:bdTalkSmile .32s ease-in-out 4 alternate}
+@keyframes bdTalkLine{from{height:2.5px;width:13px}to{height:9px;width:11px;border-radius:50%}}
+@keyframes bdTalkSmile{from{transform:scale(1)}to{transform:scale(.85,1.6)}}
+@keyframes bdBreath{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.018)}}
+@media(max-width:420px){.buddies{transform:scale(.85);transform-origin:bottom center}}
+@media(prefers-reduced-motion:reduce){.bd-shape{animation:none}.bd-mouth.talk{animation:none}}
