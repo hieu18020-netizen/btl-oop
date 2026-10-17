@@ -1509,7 +1509,7 @@ const CHIBI3_RUNNER_CONFIG = {
   speed: 78,          // tốc độ di chuyển (px/giây): tăng = chạy nhanh hơn
   fps: 11,            // tốc độ đổi khung chân (khung/giây): tăng = chân bước nhanh hơn
   spriteWidth: 150,   // kích cỡ hiển thị (px): tăng = to hơn, giảm = nhỏ hơn
-  bottomOffset: 2,   // cách đáy màn hình (px): giảm = thấp xuống
+  bottomOffset: -10,   // cách đáy màn hình (px): giảm = thấp xuống
   baseFacing: "left", // ảnh gốc quay mặt sang trái ("right" nếu ngược lại)
 };
 
