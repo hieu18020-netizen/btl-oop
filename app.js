@@ -1545,9 +1545,19 @@ const CHIBI_GALLERY = [
     },
   },
   {
-    code: "3", name: "???", desc: "",
-    rarity: "Thường", element: null,
-    frontImage: "",
+    code: "3", name: "Tuất Vương", desc: "Chú cún nhỏ năng động",
+    rarity: "Hiếm", element: "nature",
+    frontImage: "chibi/3/chinhdien.png",
+    frameCount: 11, // chibi 3 có 11 khung chạy: frame_002.png .. frame_012.png
+    // Ảnh bắt đầu từ frame_002 nên cộng 1 vào chỉ số (i=1 -> frame_002.png).
+    frameFileName: (i) => `frame_${String(i + 1).padStart(3, "0")}.png`,
+    // Config riêng của chibi 3 — đổi số ở đây không ảnh hưởng chibi khác.
+    runnerConfig: {
+      speed: 78,        // px/giây
+      fps: 11,          // khung hình/giây
+      baseFacing: "left", // ảnh gốc chú cún quay mặt/đi sang trái
+      spriteWidth: 230, // độ rộng hiển thị (px)
+    },
   },
 ];
 
