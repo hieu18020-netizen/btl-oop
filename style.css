@@ -55,8 +55,18 @@ input{cursor:text}
 label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:rgba(12,15,26,.5);display:block;margin-bottom:.5rem}
 .field{margin-bottom:1.15rem;position:relative}
 .field-row{display:flex;justify-content:space-between;align-items:center}
-.input{width:100%;padding:.875rem 1rem;background:#0c0f1a;color:#f8f7f4;border:1.5px solid rgba(255,255,255,.08);border-radius:8px;outline:none;transition:border-color .15s}
-.input:focus{border-color:#8b5cf6}
+.input{width:100%;padding:.875rem 1rem;background:#0c0f1a;color:#f8f7f4;caret-color:#f8f7f4;border:1.5px solid rgba(12,15,26,.55);border-radius:8px;outline:none;transition:border-color .15s,box-shadow .15s}
+.input:hover{border-color:rgba(139,92,246,.6)}
+.input:focus{border-color:#8b5cf6;box-shadow:0 0 0 3px rgba(139,92,246,.22)}
+/* Chrome tự điền tài khoản đã lưu sẽ đổi nền ô thành xanh nhạt -> ép giữ nền tối + chữ sáng + viền rõ */
+.input:-webkit-autofill,.input:-webkit-autofill:hover,.input:-webkit-autofill:focus,.input:-webkit-autofill:active{
+  -webkit-box-shadow:0 0 0 1000px #0c0f1a inset !important;
+  box-shadow:0 0 0 1000px #0c0f1a inset !important;
+  -webkit-text-fill-color:#f8f7f4 !important;
+  caret-color:#f8f7f4;
+  border:1.5px solid rgba(12,15,26,.55);
+  transition:background-color 99999s ease-out 0s}
+.input:-webkit-autofill:focus{border-color:#8b5cf6}
 .input-pw{padding-right:3rem}
 .eye{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:0;color:rgba(248,247,244,.4);padding:8px;font-size:16px;line-height:1}
 
@@ -71,7 +81,7 @@ label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.12
 .social button{padding:.75rem;background:transparent;border:1.5px solid rgba(12,15,26,.12);border-radius:8px;color:rgba(12,15,26,.75)}
 
 .checkrow{display:flex;align-items:flex-start;gap:.75rem;margin-bottom:1.25rem;cursor:pointer;-webkit-user-select:none;user-select:none}
-.check{width:20px;height:20px;border:1.5px solid rgba(12,15,26,.3);border-radius:4px;display:grid;place-items:center;flex-shrink:0;font-size:13px;transition:.15s}
+.check{width:20px;height:20px;border:1.5px solid rgba(12,15,26,.5);background:rgba(255,255,255,.5);border-radius:4px;display:grid;place-items:center;flex-shrink:0;font-size:13px;transition:.15s}
 .check.on{background:#0c0f1a;border-color:#0c0f1a;color:#8b5cf6}
 
 .strength{display:flex;gap:4px;margin-top:8px}
