@@ -1504,6 +1504,15 @@ const CHIBI_RARITY_STARS = { "Huyền thoại":5, "Sử thi":4, "Hiếm":3, "Th�
 // khi chưa mở khoá — xoá đi hoặc thay bằng chibi thật khi có thêm.
 // Mỗi chibi khớp với 1 dòng trong bảng chibi_characters (DB): rarity/element/
 // desc là dữ liệu hiển thị, có thể để backend trả về sau này thay vì hard-code.
+// ===== CHỈNH RIÊNG CHIBI 3 (Tuất Vương) — chỉ sửa ở đây, không ảnh hưởng chibi 1, 2 =====
+const CHIBI3_RUNNER_CONFIG = {
+  speed: 78,          // tốc độ di chuyển (px/giây): tăng = chạy nhanh hơn
+  fps: 11,            // tốc độ đổi khung chân (khung/giây): tăng = chân bước nhanh hơn
+  spriteWidth: 230,   // kích cỡ hiển thị (px): tăng = to hơn, giảm = nhỏ hơn
+  bottomOffset: 14,   // cách đáy màn hình (px): giảm = thấp xuống
+  baseFacing: "left", // ảnh gốc quay mặt sang trái ("right" nếu ngược lại)
+};
+
 const CHIBI_GALLERY = [
   {
     code: "1", name: "Eruka", desc: "Cô bé mèo con",
@@ -1553,12 +1562,7 @@ const CHIBI_GALLERY = [
     frameCount: 11,
     frameFileName: (i) => `frame_${String(i + 1).padStart(3, "0")}.png`, // i=1 -> frame_002.png (đổi "+ 1" thành "+ 0" nếu ảnh bắt đầu từ frame_001)
     // Config riêng của chibi 3 — đổi số ở đây không ảnh hưởng chibi khác.
-    runnerConfig: {
-      speed: 78,        // px/giây
-      fps: 11,          // khung hình/giây
-      baseFacing: "left", // ảnh gốc chú cún quay mặt/đi sang trái
-      spriteWidth: 230, // độ rộng hiển thị (px)
-    },
+    runnerConfig: CHIBI3_RUNNER_CONFIG,
   },
 ];
 
