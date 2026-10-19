@@ -123,6 +123,7 @@ let s = {
   userRank    : "#-",
   userMatches : 0,
   userHighScore: 0,
+  userSnakeScore: 0,   // kỷ lục riêng của Rắn săn mồi
   showLogin   : false,
   regPass     : "",
   showReg     : false,
@@ -234,6 +235,7 @@ function logout(){
   s.userRank = "#-";
   s.userMatches = 0;
   s.userHighScore = 0;
+  s.userSnakeScore = 0;
   dbLeaderboard = [];
   s.friends = [];
   s.friendsIncoming = [];
@@ -282,6 +284,7 @@ async function restoreSession(){
     s.userRank = data.rank;
     s.userMatches = data.total_matches;
     s.userHighScore = data.high_score || 0;
+    s.userSnakeScore = data.snake_score || 0;
     if (data.avatar) s.avatar = data.avatar;
     s.activeChibiCodes = new Set(data.active_chibi_codes || []);
     applyChibiRunnerState(); // đồng bộ lại theo dữ liệu thật từ server (phòng khi đổi từ máy khác)
@@ -338,6 +341,7 @@ async function fetchUserStats() {
       s.userRank = data.rank;
       s.userMatches = data.total_matches;
       s.userHighScore = data.high_score || 0;
+      s.userSnakeScore = data.snake_score || 0;
       s.userPublicId = data.public_id || "--------";
       if (data.avatar) s.avatar = data.avatar;
       if (data.active_chibi_codes !== undefined) {
@@ -621,6 +625,7 @@ function historyWhen(iso){
 }
 
 const HX_ICON_TETRIS = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="6" height="6" rx="1.2"/><rect x="14" y="4" width="6" height="6" rx="1.2"/><rect x="9" y="14" width="6" height="6" rx="1.2"/></svg>`;
+const HX_ICON_SNAKE = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19h8a4 4 0 0 0 0-8H9a3 3 0 0 1 0-6h9"/><circle cx="18.5" cy="5" r="1" fill="currentColor"/></svg>`;
 const HX_ICON_CHESS = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="6.5" r="3"/><path d="M9 11h6l-1 5h2.2l1.3 4H6.5l1.3-4H10z"/></svg>`;
 const HX_ICON_TREND = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/></svg>`;
 const HX_ICON_TROPHY = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>`;
@@ -648,13 +653,14 @@ function historyRowHtml(h){
   const score = Number(h.score) || 0;
   const dur = (h.duration_seconds !== null && h.duration_seconds !== undefined)
     ? ` <i>•</i> ${formatPlayDuration(h.duration_seconds)}` : "";
+  const isSnake = h.game_type === "snake";
   return `<div class="hx-row">
-    <div class="hx-icon tetris">${HX_ICON_TETRIS}</div>
+    <div class="hx-icon ${isSnake ? "snake" : "tetris"}">${isSnake ? HX_ICON_SNAKE : HX_ICON_TETRIS}</div>
     <div class="hx-info">
-      <div class="hx-name">Tetris</div>
+      <div class="hx-name">${isSnake ? "Rắn săn mồi" : "Tetris"}</div>
       <div class="hx-sub">${esc(when)}${dur}</div>
     </div>
-    <div class="hx-result score"><b>${score.toLocaleString("vi-VN")}</b><span>điểm</span></div>
+    <div class="hx-result score${isSnake ? " snake" : ""}"><b>${score.toLocaleString("vi-VN")}</b><span>điểm</span></div>
   </div>`;
 }
 
@@ -662,12 +668,14 @@ function historyView(){
   const filters = [
     { key: "all",    label: "Tất cả",  icon: "" },
     { key: "tetris", label: "Tetris",  icon: HX_ICON_TETRIS },
+    { key: "snake",  label: "Rắn săn mồi", icon: HX_ICON_SNAKE },
     { key: "chess",  label: "Cờ vua",  icon: HX_ICON_CHESS },
   ];
   const list = s.gameHistory.filter(h => s.historyFilter === "all" || h.game_type === s.historyFilter);
   const sm = s.gameHistorySummary || {};
 
   const tetrisGames = Number(sm.tetris_games) || 0;
+  const snakeGames = Number(sm.snake_games) || 0;
   const chessGames = Number(sm.chess_games) || 0;
   const wins = Number(sm.chess_wins) || 0;
   const losses = Number(sm.chess_losses) || 0;
@@ -678,11 +686,15 @@ function historyView(){
   const formCls = form > 0 ? "pos" : (form < 0 ? "neg" : "");
   const formText = form > 0 ? `+${form}` : `${form}`;
 
-  const statsHtml = `<div class="hx-stats">
+  const statsHtml = `<div class="hx-stats hx-5">
       <div class="hx-stat"><div class="hx-stat-icon">${HX_ICON_TETRIS}</div><div>
         <div class="hx-stat-label">Ván Tetris</div>
         <div class="hx-stat-num">${String(tetrisGames).padStart(2, "0")}</div>
         <div class="hx-stat-sub">Điểm cao nhất ${(Number(sm.tetris_best) || 0).toLocaleString("vi-VN")}</div></div></div>
+      <div class="hx-stat snake"><div class="hx-stat-icon">${HX_ICON_SNAKE}</div><div>
+        <div class="hx-stat-label">Ván Rắn săn mồi</div>
+        <div class="hx-stat-num">${String(snakeGames).padStart(2, "0")}</div>
+        <div class="hx-stat-sub">Điểm cao nhất ${(Number(sm.snake_best) || 0).toLocaleString("vi-VN")}</div></div></div>
       <div class="hx-stat"><div class="hx-stat-icon">${HX_ICON_CHESS}</div><div>
         <div class="hx-stat-label">Ván cờ vua</div>
         <div class="hx-stat-num">${chessGames.toLocaleString("vi-VN")}</div>
@@ -1462,7 +1474,7 @@ function homeView(){
 const GAMES = [
   { id:"tetris",      name:"Tetris",        desc:"Xếp hình kinh điển — leo rank, phá kỷ lục điểm cao.", icon:"🟦", tag:"ARCADE",     color:"#00d4ff", playable:true  },
   { id:"chess",       name:"Cờ Vua",        desc:"Cờ vua online 1vs1 qua mạng — tạo phòng và mời bạn bè vào đấu.", icon:"♟️", tag:"CHIẾN THUẬT", color:"#e8c97a", playable:true  },
-  { id:"snake",       name:"Rắn săn mồi",   desc:"Điều khiển con rắn, ăn mồi và tránh va chạm.",         icon:"🐍", tag:"ARCADE",     color:"#22c55e", playable:false },
+  { id:"snake",       name:"Rắn săn mồi",   desc:"Điều khiển con rắn, ăn mồi và tránh va chạm.",         icon:"🐍", tag:"ARCADE",     color:"#22c55e", playable:true  },
   { id:"2048",        name:"2048",          desc:"Trượt các ô số, kết hợp để đạt ô 2048.",               icon:"🔢", tag:"PUZZLE",     color:"#f97316", playable:false },
   { id:"flappy",      name:"Flappy Bird",   desc:"Vượt qua ống nước — kiểm tra phản xạ của bạn.",        icon:"🐦", tag:"PHẢN XẠ",    color:"#eab308", playable:false },
   { id:"minesweeper", name:"Dò mìn",        desc:"Lật ô, đánh dấu mìn và sống sót đến cuối.",            icon:"💣", tag:"CHIẾN THUẬT",color:"#ef4444", playable:false },
@@ -1504,15 +1516,6 @@ const CHIBI_RARITY_STARS = { "Huyền thoại":5, "Sử thi":4, "Hiếm":3, "Th�
 // khi chưa mở khoá — xoá đi hoặc thay bằng chibi thật khi có thêm.
 // Mỗi chibi khớp với 1 dòng trong bảng chibi_characters (DB): rarity/element/
 // desc là dữ liệu hiển thị, có thể để backend trả về sau này thay vì hard-code.
-// ===== CHỈNH RIÊNG CHIBI 3 (Tuất Vương) — chỉ sửa ở đây, không ảnh hưởng chibi 1, 2 =====
-const CHIBI3_RUNNER_CONFIG = {
-  speed: 78,          // tốc độ di chuyển (px/giây): tăng = chạy nhanh hơn
-  fps: 11,            // tốc độ đổi khung chân (khung/giây): tăng = chân bước nhanh hơn
-  spriteWidth: 150,   // kích cỡ hiển thị (px): tăng = to hơn, giảm = nhỏ hơn
-  bottomOffset: -17,   // cách đáy màn hình (px): giảm = thấp xuống
-  baseFacing: "left", // ảnh gốc quay mặt sang trái ("right" nếu ngược lại)
-};
-
 const CHIBI_GALLERY = [
   {
     code: "1", name: "Eruka", desc: "Cô bé mèo con",
@@ -1554,15 +1557,9 @@ const CHIBI_GALLERY = [
     },
   },
   {
-    code: "3", name: "Tuất Vương", desc: "Chú cún nhỏ năng động",
-    rarity: "Hiếm", element: "nature",
-    frontImage: "chibi/3/chinhdien.png",
-    // Chỉnh 2 dòng dưới cho khớp ảnh của bạn trong chibi/3/:
-    //   FIRST = số của khung đầu tiên (vd frame_002.png -> 2), frameCount = tổng số khung.
-    frameCount: 11,
-    frameFileName: (i) => `frame_${String(i + 1).padStart(3, "0")}.png`, // i=1 -> frame_002.png (đổi "+ 1" thành "+ 0" nếu ảnh bắt đầu từ frame_001)
-    // Config riêng của chibi 3 — đổi số ở đây không ảnh hưởng chibi khác.
-    runnerConfig: CHIBI3_RUNNER_CONFIG,
+    code: "3", name: "???", desc: "",
+    rarity: "Thường", element: null,
+    frontImage: "",
   },
 ];
 
@@ -1742,69 +1739,47 @@ function shopItems(){
   return CHIBI_GALLERY.filter(c => !isChibiUnlocked(c.code) && (s.chibiPrices[c.code] || 0) > 0 && c.frontImage);
 }
 
-function shopCard(c, idx){
+function shopCard(c){
   const price = s.chibiPrices[c.code] || 0;
-  const color = { "Huyền thoại":"#f59e0b", "Sử thi":"#c084fc", "Hiếm":"#fb923c", "Thường":"#9ca3af" }[c.rarity] || "#9ca3af";
+  const color = { "Huyền thoại":"#f59e0b", "Sử thi":"#a855f7", "Hiếm":"#38bdf8", "Thường":"#9ca3af" }[c.rarity] || "rgba(248,247,244,.4)";
   const elem = c.element ? ELEMENT_TYPES[c.element] : null;
   const tint = elem ? elem.color : "#8b5cf6";
   const fallback = `chibi/${c.code}/${c.frameFileName ? c.frameFileName(1) : "1.png"}`;
   const enough = s.gold >= price;
-  const num = String(idx + 1).padStart(2, "0");
-  return `<article class="sp-card" style="--tint:${tint};--rar:${color};animation-delay:${idx * 70}ms">
-    <div class="sp-card-top">
-      <span class="sp-rarity">✦ ${esc(String(c.rarity).toUpperCase())}</span>
-      <span class="sp-num">${num}</span>
+  return `<div class="chibi-card" style="--tint:${tint}">
+    <div class="chibi-card-top">
+      <span class="chibi-badge-rarity" style="color:${color};border-color:${color}66">${c.rarity}</span>
+      <span></span>
     </div>
-    <div class="sp-art">
-      <div class="sp-ring sp-ring-1"></div>
-      <div class="sp-ring sp-ring-2"></div>
-      <img src="${esc(c.frontImage)}" alt="${esc(c.name)}" onerror="this.onerror=null;this.src='${esc(fallback)}'">
-      <div class="sp-shadow"></div>
-      ${elem ? `<span class="sp-elem" style="color:${elem.color}">${elem.icon}</span>` : ""}
+    ${chibiStars(c.rarity)}
+    <div class="chibi-card-avatar-wrap">
+      <div class="chibi-card-avatar">
+        <img src="${esc(c.frontImage)}" alt="${esc(c.name)}" onerror="this.onerror=null;this.src='${esc(fallback)}'">
+      </div>
+      ${elem ? `<span class="chibi-elem-badge" style="background:${elem.color}22;color:${elem.color}">${elem.icon}</span>` : ""}
     </div>
-    <div class="sp-info">
-      <div class="sp-kind">BẠN ĐỒNG HÀNH</div>
-      <div class="sp-name">${esc(c.name)}</div>
-      <div class="sp-desc">${esc(c.desc)}</div>
-    </div>
-    <div class="sp-foot">
-      <div class="sp-price${enough ? "" : " short"}"><i class="sp-coin-sm"></i><b>${price}</b></div>
-      <button type="button" class="sp-buy${enough ? "" : " short"}" ${s.shopBusy ? "disabled" : ""}
-        onclick="buyChibi('${c.code}')"><span>${enough ? "Mua ngay" : "Chưa đủ vàng"}</span><em>${enough ? "→" : "–"}</em></button>
-    </div>
-  </article>`;
+    <div class="chibi-card-name">${esc(c.name)}</div>
+    <div class="chibi-card-desc">${esc(c.desc)}</div>
+    <div class="shop-price${enough ? "" : " short"}">🪙 ${price}</div>
+    <button type="button" class="chibi-use-btn shop-buy-btn${enough ? "" : " short"}" ${s.shopBusy ? "disabled" : ""}
+      onclick="buyChibi('${c.code}')">${enough ? "Mua" : "Chưa đủ vàng"}</button>
+  </div>`;
 }
 
 function shopView(){
   const items = shopItems();
   let body;
-  if (!s.token) body = `<div class="sp-empty">Vui lòng đăng nhập để mua chibi.</div>`;
-  else if (!s.chibisLoaded) body = `<div class="sp-empty">Đang tải cửa hàng...</div>`;
-  else if (!items.length) body = `<div class="sp-empty">Bạn đã sở hữu tất cả chibi đang bán. Hãy quay lại sau nhé!</div>`;
-  else body = `<div class="sp-grid">${items.map(shopCard).join("")}</div>`;
-  const count = (s.token && s.chibisLoaded) ? items.length : 0;
+  if (!s.token) body = `<div class="quest-hint">Vui lòng đăng nhập để mua chibi.</div>`;
+  else if (!s.chibisLoaded) body = `<div class="quest-hint">Đang tải cửa hàng...</div>`;
+  else if (!items.length) body = `<div class="quest-hint">Bạn đã sở hữu tất cả chibi đang bán. Hãy quay lại sau nhé!</div>`;
+  else body = `<div class="chibi-grid">${items.map(shopCard).join("")}</div>`;
   return `<div class="home fade">
     <div class="gridbg fixed-grid"></div>
     ${navBar()}
-    <main class="content sp">
-      <header class="sp-hero">
-        <div class="sp-hero-text">
-          <div class="sp-eyebrow"><i></i>KHU CHỢ PHIÊU LƯU</div>
-          <h1 class="sp-title">Góc nhỏ<br>kỳ diệu.</h1>
-          <p class="sp-sub">Chọn một người bạn mới hoặc món đồ may mắn cho hành trình tiếp theo.</p>
-        </div>
-        <div class="sp-wallet">
-          <span>Túi vàng của bạn</span>
-          <b>${Number(s.gold) || 0}</b>
-          <i class="sp-coin"></i>
-        </div>
-      </header>
-      <div class="sp-bar">
-        <span>BỘ SƯU TẬP KỲ NÀY</span>
-        <span><b>${count}</b> vật phẩm đang chờ bạn</span>
-      </div>
+    <main class="content">
+      <div class="section-title">Cửa hàng</div>
+      <div class="quest-hint">Số vàng của bạn: <b>🪙 ${Number(s.gold) || 0}</b> · Hoàn thành nhiệm vụ để nhận thêm vàng</div>
       ${body}
-      <div class="sp-note"><i></i><span>Hoàn thành nhiệm vụ mỗi ngày để nhận thêm vàng</span><i></i></div>
     </main>
   </div>`;
 }
@@ -1897,7 +1872,8 @@ function gameView(){
 // để server có căn cứ kiểm tra điểm nộp lên sau này có hợp lý hay không.
 async function startGameSession(){
   try {
-    const res = await authFetch(`${API_URL}/start-game`, { method: "POST" });
+    const game = s.selectedGame === "snake" ? "snake" : "tetris";   // phiên chơi gắn với loại game
+    const res = await authFetch(`${API_URL}/start-game?game=${game}`, { method: "POST" });
     if (res.ok) {
       const data = await res.json();
       s.gameSessionToken = data.session_token || "";
@@ -1911,6 +1887,7 @@ async function startGameSession(){
 // Trả về {rank, highScore, totalMatches} nếu thành công, hoặc null nếu có lỗi.
 // KHÔNG tự chuyển trang ở đây nữa — để tetris.js quyết định hiển thị gì sau khi có kết quả.
 async function submitScore(finalScore){
+  const gameType = s.selectedGame === "snake" ? "snake" : "tetris";
   if (!s.gameSessionToken) {
     alert("Không xác định được phiên chơi, điểm chưa được lưu. Vui lòng chơi lại ván mới.");
     return null;
@@ -1919,7 +1896,7 @@ async function submitScore(finalScore){
     const res = await authFetch(`${API_URL}/update-score`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ score: finalScore, session_token: s.gameSessionToken })
+      body: JSON.stringify({ score: finalScore, session_token: s.gameSessionToken, game_type: gameType })
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -1939,8 +1916,11 @@ async function submitScore(finalScore){
       s.userRank = data.rank;
       s.userMatches = data.total_matches;
       s.userHighScore = data.high_score || 0;
+      s.userSnakeScore = data.snake_score || 0;
       s.gameSessionToken = "";
-      return { rank: data.rank, highScore: data.high_score || 0, totalMatches: data.total_matches };
+      // Rắn săn mồi hiển thị KỶ LỤC riêng của rắn; Tetris giữ nguyên như cũ.
+      const best = gameType === "snake" ? (data.snake_score || 0) : (data.high_score || 0);
+      return { rank: data.rank, highScore: best, totalMatches: data.total_matches };
     }
   } catch (err) {
     console.error("Lỗi lấy thông tin xếp hạng:", err);
@@ -1961,6 +1941,9 @@ function render(){
   }
   if (typeof ChessGame !== "undefined") {
     ChessGame.unmount();
+  }
+  if (typeof SnakeGame !== "undefined") {
+    SnakeGame.unmount();
   }
 
   // Chỉ phát animation "fade" khi THỰC SỰ chuyển sang view khác.
@@ -1996,6 +1979,11 @@ function render(){
         playerAvatar: s.avatar || "",
         playerScore: s.userHighScore || 0,
         authToken: s.token || ""
+      }));
+    } else if (mountPoint && s.selectedGame === "snake" && typeof SnakeGame !== "undefined") {
+      SnakeGame.mount(mountPoint, Object.assign({}, gameOpts, {
+        onStart: startGameSession,      // chơi lại -> xin phiên chơi mới (token chỉ dùng được 1 lần)
+        highScore: s.userSnakeScore || 0
       }));
     } else if (mountPoint && typeof TetrisGame !== "undefined") {
       TetrisGame.mount(mountPoint, gameOpts);
