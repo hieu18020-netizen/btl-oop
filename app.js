@@ -1558,9 +1558,17 @@ const CHIBI_GALLERY = [
     },
   },
   {
-    code: "3", name: "???", desc: "",
-    rarity: "Thường", element: null,
-    frontImage: "",
+    code: "3", name: "Tuất Vương", desc: "Chú cún vàng tinh nghịch",
+    rarity: "Thường", element: "nature",
+    frontImage: "chibi/3/frame_002.png", // chưa có chinhdien.png nên dùng tạm khung đầu
+    frameCount: 11, // chibi/3 có frame_002 .. frame_012 = 11 khung
+    // Runner đếm i = 1..frameCount, còn file bắt đầu từ frame_002 nên cộng 1.
+    frameFileName: (i) => `frame_${String(i + 1).padStart(3, "0")}.png`,
+    runnerConfig: {
+      speed: 90,          // px/giây
+      fps: 12,            // khung hình/giây
+      baseFacing: "left", // ảnh gốc chó quay mặt sang trái
+    },
   },
 ];
 
