@@ -1983,7 +1983,8 @@ function render(){
     } else if (mountPoint && s.selectedGame === "snake" && typeof SnakeGame !== "undefined") {
       SnakeGame.mount(mountPoint, Object.assign({}, gameOpts, {
         onStart: startGameSession,      // chơi lại -> xin phiên chơi mới (token chỉ dùng được 1 lần)
-        highScore: s.userSnakeScore || 0
+        highScore: s.userSnakeScore || 0,
+        rank: s.userRank || ""           // hiển thị hạng hiện tại trong màn chơi
       }));
     } else if (mountPoint && typeof TetrisGame !== "undefined") {
       TetrisGame.mount(mountPoint, gameOpts);
