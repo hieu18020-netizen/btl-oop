@@ -166,6 +166,7 @@ let s = {
   gold                : 0,          // số vàng của tài khoản (lấy từ server)
   chibiPrices         : {},         // code chibi -> giá bán (vàng), 0 = không bán
   shopBusy            : false,      // đang gửi yêu cầu mua
+  shopFilter          : "all",      // bộ lọc cửa hàng: all | affordable | tên độ hiếm
   gameHistory         : [],
   gameHistorySummary  : null,
   gameHistoryLoaded   : false,
@@ -1739,47 +1740,100 @@ function shopItems(){
   return CHIBI_GALLERY.filter(c => !isChibiUnlocked(c.code) && (s.chibiPrices[c.code] || 0) > 0 && c.frontImage);
 }
 
+const SHOP_RARITY_COLOR = { "Huyền thoại":"#f59e0b", "Sử thi":"#a855f7", "Hiếm":"#38bdf8", "Thường":"#9ca3af" };
+const SH_ICON_BAG = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h12l1 13H5z"/><path d="M9 10V6a3 3 0 0 1 6 0v4"/></svg>`;
+
+function setShopFilter(f){
+  s.shopFilter = f;
+  render();
+}
+
 function shopCard(c){
   const price = s.chibiPrices[c.code] || 0;
-  const color = { "Huyền thoại":"#f59e0b", "Sử thi":"#a855f7", "Hiếm":"#38bdf8", "Thường":"#9ca3af" }[c.rarity] || "rgba(248,247,244,.4)";
+  const color = SHOP_RARITY_COLOR[c.rarity] || "rgba(248,247,244,.4)";
   const elem = c.element ? ELEMENT_TYPES[c.element] : null;
   const tint = elem ? elem.color : "#8b5cf6";
   const fallback = `chibi/${c.code}/${c.frameFileName ? c.frameFileName(1) : "1.png"}`;
-  const enough = s.gold >= price;
-  return `<div class="chibi-card" style="--tint:${tint}">
-    <div class="chibi-card-top">
-      <span class="chibi-badge-rarity" style="color:${color};border-color:${color}66">${c.rarity}</span>
-      <span></span>
+  const gold = Number(s.gold) || 0;
+  const enough = gold >= price;
+  const pct = Math.max(0, Math.min(100, Math.round(gold * 100 / price)));
+  return `<div class="sh-card" style="--tint:${tint};--rar:${color}">
+    <div class="sh-card-top">
+      <span class="sh-rar">${c.rarity}</span>
+      ${elem ? `<span class="sh-elem" style="color:${elem.color};border-color:${elem.color}55;background:${elem.color}14">${elem.icon} ${elem.label}</span>` : ""}
     </div>
     ${chibiStars(c.rarity)}
-    <div class="chibi-card-avatar-wrap">
-      <div class="chibi-card-avatar">
-        <img src="${esc(c.frontImage)}" alt="${esc(c.name)}" onerror="this.onerror=null;this.src='${esc(fallback)}'">
-      </div>
-      ${elem ? `<span class="chibi-elem-badge" style="background:${elem.color}22;color:${elem.color}">${elem.icon}</span>` : ""}
+    <div class="sh-avatar">
+      <img src="${esc(c.frontImage)}" alt="${esc(c.name)}" onerror="this.onerror=null;this.src='${esc(fallback)}'">
     </div>
-    <div class="chibi-card-name">${esc(c.name)}</div>
-    <div class="chibi-card-desc">${esc(c.desc)}</div>
-    <div class="shop-price${enough ? "" : " short"}">🪙 ${price}</div>
-    <button type="button" class="chibi-use-btn shop-buy-btn${enough ? "" : " short"}" ${s.shopBusy ? "disabled" : ""}
-      onclick="buyChibi('${c.code}')">${enough ? "Mua" : "Chưa đủ vàng"}</button>
+    <div class="sh-name">${esc(c.name)}</div>
+    <div class="sh-desc">${esc(c.desc)}</div>
+    <div class="sh-buy">
+      <div class="sh-price"><span>GIÁ</span><b>🪙 ${price.toLocaleString("vi-VN")}</b></div>
+      <button type="button" class="sh-btn${enough ? "" : " short"}" ${s.shopBusy ? "disabled" : ""}
+        onclick="buyChibi('${c.code}')">${enough ? "MUA NGAY <i>→</i>" : `THIẾU ${(price - gold).toLocaleString("vi-VN")} 🪙`}</button>
+    </div>
+    ${enough ? "" : `<div class="sh-progress" title="Bạn có ${gold} / ${price} vàng"><i style="width:${pct}%"></i></div>`}
   </div>`;
 }
 
 function shopView(){
   const items = shopItems();
+  const gold = Number(s.gold) || 0;
+  const priceOf = c => s.chibiPrices[c.code] || 0;
+  const ownedCount = CHIBI_GALLERY.filter(c => isChibiUnlocked(c.code)).length;
+
+  // Bộ lọc: Tất cả / Mua được / từng độ hiếm đang có trong cửa hàng
+  const rarities = ["Thường", "Hiếm", "Sử thi", "Huyền thoại"].filter(r => items.some(c => c.rarity === r));
+  const filters = [
+    { key: "all", label: "Tất cả", n: items.length },
+    { key: "affordable", label: "Mua được", n: items.filter(c => priceOf(c) <= gold).length },
+    ...rarities.map(r => ({ key: r, label: r, n: items.filter(c => c.rarity === r).length })),
+  ];
+  const active = filters.some(f => f.key === s.shopFilter) ? s.shopFilter : "all";
+  const shown = items.filter(c =>
+    active === "all" ? true : active === "affordable" ? priceOf(c) <= gold : c.rarity === active);
+
   let body;
-  if (!s.token) body = `<div class="quest-hint">Vui lòng đăng nhập để mua chibi.</div>`;
-  else if (!s.chibisLoaded) body = `<div class="quest-hint">Đang tải cửa hàng...</div>`;
-  else if (!items.length) body = `<div class="quest-hint">Bạn đã sở hữu tất cả chibi đang bán. Hãy quay lại sau nhé!</div>`;
-  else body = `<div class="chibi-grid">${items.map(shopCard).join("")}</div>`;
+  if (!s.token) body = `<div class="sh-empty">Vui lòng đăng nhập để mua chibi.</div>`;
+  else if (!s.chibisLoaded) body = `<div class="sh-empty">⏳ Đang tải cửa hàng...</div>`;
+  else if (!items.length) body = `<div class="sh-empty">🎉 Bạn đã sở hữu tất cả chibi đang bán. Hãy quay lại sau nhé!</div>`;
+  else if (!shown.length) body = `<div class="sh-empty">Không có chibi nào phù hợp bộ lọc này.</div>`;
+  else body = `<div class="sh-grid">${shown.map(shopCard).join("")}</div>`;
+
   return `<div class="home fade">
     <div class="gridbg fixed-grid"></div>
     ${navBar()}
-    <main class="content">
-      <div class="section-title">Cửa hàng</div>
-      <div class="quest-hint">Số vàng của bạn: <b>🪙 ${Number(s.gold) || 0}</b> · Hoàn thành nhiệm vụ để nhận thêm vàng</div>
-      ${body}
+    <main class="content sh">
+      <header class="sh-head">
+        <div class="sh-brand">
+          <div class="sh-logo">${SH_ICON_BAG}</div>
+          <div>
+            <div class="sh-eyebrow">NEON ARCADE</div>
+            <h1 class="sh-title">CỬA HÀNG</h1>
+          </div>
+        </div>
+        <div class="sh-gold"><span>SỐ DƯ</span><b>🪙 ${gold.toLocaleString("vi-VN")}</b></div>
+      </header>
+
+      <div class="sh-stats">
+        <div class="sh-stat gold"><div class="sh-label">SỐ VÀNG CỦA BẠN</div><div class="sh-num">🪙 ${gold.toLocaleString("vi-VN")}</div>
+          <a class="sh-link" onclick="go('quests')">Làm nhiệm vụ để nhận thêm vàng →</a></div>
+        <div class="sh-stat"><div class="sh-label">ĐANG BÁN</div><div class="sh-num">${String(items.length).padStart(2, "0")}</div>
+          <div class="sh-sub">chibi chưa sở hữu</div></div>
+        <div class="sh-stat"><div class="sh-label">ĐÃ SỞ HỮU</div><div class="sh-num">${ownedCount}<small> / ${CHIBI_GALLERY.length}</small></div>
+          <div class="sh-sub">trong bộ sưu tập</div></div>
+      </div>
+
+      <section class="sh-card-wrap">
+        <div class="sh-bar-head">
+          <div><div class="sh-sec">DANH SÁCH CHIBI</div><div class="sh-sec-sub">${shown.length} sản phẩm được hiển thị</div></div>
+          <div class="sh-seg">
+            ${filters.map(f => `<button type="button" class="${active === f.key ? "active" : ""}" onclick="setShopFilter('${f.key}')">${f.label}<em>${f.n}</em></button>`).join("")}
+          </div>
+        </div>
+        ${body}
+      </section>
     </main>
   </div>`;
 }
