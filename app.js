@@ -1980,8 +1980,8 @@ async function submitScore(finalScore){
       s.userHighScore = data.high_score || 0;
       s.userSnakeScore = data.snake_score || 0;
       s.gameSessionToken = "";
-      // Rắn săn mồi hiển thị KỶ LỤC riêng của rắn; Tetris giữ nguyên như cũ.
-      const best = gameType === "snake" ? (data.snake_score || 0) : (data.high_score || 0);
+      // Mỗi game hiển thị KỶ LỤC riêng của nó. data.high_score là TỔNG (Tetris + cờ + rắn) nên không dùng ở đây.
+      const best = gameType === "snake" ? (data.snake_score || 0) : (data.tetris_score || 0);
       return { rank: data.rank, highScore: best, totalMatches: data.total_matches };
     }
   } catch (err) {
