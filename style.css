@@ -1142,3 +1142,66 @@ label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.12
 .hx-result.score.snake b{color:#34d399}
 .hx-stats.hx-5{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
 .hx-stat.snake .hx-stat-icon{color:#34d399;background:rgba(52,211,153,.12);border-color:rgba(52,211,153,.35)}
+
+/* ==================== CỬA HÀNG (Neon Arcade) ==================== */
+.sh{--sh-v:#7c6cff;--sh-line:rgba(124,108,255,.22);max-width:1100px}
+.sh-head{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding-bottom:1rem;border-bottom:1px solid var(--sh-line);margin-bottom:1.3rem;flex-wrap:wrap}
+.sh-brand{display:flex;align-items:center;gap:.85rem}
+.sh-logo{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;color:#f2d98c;background:linear-gradient(145deg,rgba(232,201,122,.25),rgba(232,201,122,.06));border:1px solid rgba(232,201,122,.5);box-shadow:0 0 18px rgba(232,201,122,.2)}
+.sh-eyebrow{font-size:9px;letter-spacing:.28em;color:rgba(168,156,255,.7);font-weight:600}
+.sh-title{margin:2px 0 0;font-family:"Chakra Petch",Outfit,sans-serif;font-size:clamp(20px,3vw,26px);font-weight:700;letter-spacing:.03em;color:#fff}
+.sh-gold{display:flex;align-items:center;gap:.7rem;padding:.5rem 1.1rem;border-radius:999px;border:1px solid rgba(232,201,122,.45);background:rgba(232,201,122,.08)}
+.sh-gold span{font-size:9px;letter-spacing:.2em;color:rgba(232,201,122,.65);font-weight:700}
+.sh-gold b{font-family:"Chakra Petch",Outfit,sans-serif;font-size:1.05rem;color:#f2d98c}
+
+.sh-stats{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:1rem;margin-bottom:1.4rem}
+.sh-stat{padding:1.1rem 1.2rem;border-radius:16px;background:linear-gradient(160deg,rgba(124,108,255,.1),rgba(124,108,255,.03));border:1px solid var(--sh-line)}
+.sh-stat.gold{background:linear-gradient(160deg,rgba(232,201,122,.14),rgba(232,201,122,.03));border-color:rgba(232,201,122,.35)}
+.sh-label{font-size:9px;letter-spacing:.18em;color:rgba(248,247,244,.4);font-weight:600}
+.sh-num{margin:.35rem 0 .3rem;font-family:"Chakra Petch",Outfit,sans-serif;font-size:2rem;font-weight:700;color:#fff;line-height:1.1}
+.sh-num small{font-size:1rem;color:rgba(248,247,244,.4);font-weight:600}
+.sh-stat.gold .sh-num{color:#f2d98c}
+.sh-sub{font-size:11px;color:rgba(248,247,244,.4)}
+.sh-link{display:inline-block;font-size:11.5px;color:#e8c97a;cursor:pointer;text-decoration:none}
+.sh-link:hover{text-decoration:underline}
+
+.sh-card-wrap{padding:1.2rem;border-radius:20px;background:rgba(255,255,255,.02);border:1px solid var(--sh-line)}
+.sh-bar-head{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;padding-bottom:1rem;margin-bottom:1.2rem;border-bottom:1px solid var(--sh-line)}
+.sh-sec{font-size:11px;font-weight:700;letter-spacing:.22em;color:#8f82ff}
+.sh-sec-sub{margin-top:.25rem;font-size:11.5px;color:rgba(248,247,244,.4)}
+.sh-seg{display:flex;gap:.2rem;padding:.3rem;border-radius:12px;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.1);flex-wrap:wrap}
+.sh-seg button{display:flex;align-items:center;gap:.4rem;padding:.45rem .85rem;border:0;border-radius:9px;background:transparent;color:rgba(248,247,244,.55);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;transition:.15s}
+.sh-seg button em{font-style:normal;font-size:10.5px;padding:1px 6px;border-radius:999px;background:rgba(255,255,255,.08);color:rgba(248,247,244,.55)}
+.sh-seg button:hover{color:#f8f7f4}
+.sh-seg button.active{background:rgba(124,108,255,.2);color:#fff;box-shadow:inset 0 0 0 1px rgba(124,108,255,.5)}
+.sh-seg button.active em{background:rgba(124,108,255,.45);color:#fff}
+
+.sh-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:1.1rem}
+.sh-card{--tint:#8b5cf6;--rar:#9ca3af;position:relative;display:flex;flex-direction:column;gap:.45rem;padding:1rem;border-radius:18px;
+  background:linear-gradient(165deg,color-mix(in srgb,var(--tint) 16%,transparent),rgba(255,255,255,.02) 65%);
+  border:1px solid color-mix(in srgb,var(--tint) 35%,transparent);transition:transform .18s,box-shadow .18s,border-color .18s;animation:shIn .35s both}
+.sh-card:nth-child(2){animation-delay:.05s}.sh-card:nth-child(3){animation-delay:.1s}.sh-card:nth-child(4){animation-delay:.15s}
+.sh-card:hover{transform:translateY(-4px);border-color:color-mix(in srgb,var(--tint) 70%,transparent);box-shadow:0 16px 34px rgba(0,0,0,.4),0 0 26px color-mix(in srgb,var(--tint) 22%,transparent)}
+@keyframes shIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.sh-card-top{display:flex;justify-content:space-between;align-items:center;gap:.4rem}
+.sh-rar{font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:3px 9px;border-radius:999px;color:var(--rar);border:1px solid color-mix(in srgb,var(--rar) 45%,transparent);background:color-mix(in srgb,var(--rar) 10%,transparent)}
+.sh-elem{font-size:10px;font-weight:600;padding:3px 8px;border-radius:999px;border:1px solid}
+.sh-card .chibi-stars{text-align:center}
+.sh-avatar{align-self:center;width:136px;height:136px;margin:.2rem 0;border-radius:50%;overflow:hidden;background:radial-gradient(circle at 50% 35%,color-mix(in srgb,var(--tint) 28%,transparent),rgba(255,255,255,.04));border:1px solid color-mix(in srgb,var(--tint) 40%,transparent);box-shadow:0 0 28px color-mix(in srgb,var(--tint) 20%,transparent)}
+.sh-avatar img{width:100%;height:100%;object-fit:cover;object-position:center 20%}
+.sh-name{text-align:center;font-family:Fraunces,Georgia,serif;font-size:1.1rem;color:#f8f7f4}
+.sh-desc{text-align:center;font-size:11.5px;line-height:1.4;color:rgba(248,247,244,.45);min-height:16px}
+.sh-buy{display:flex;align-items:center;justify-content:space-between;gap:.6rem;margin-top:.5rem;padding-top:.7rem;border-top:1px solid rgba(255,255,255,.08)}
+.sh-price span{display:block;font-size:8.5px;letter-spacing:.18em;color:rgba(248,247,244,.38);font-weight:600}
+.sh-price b{font-family:"Chakra Petch",Outfit,sans-serif;font-size:1.05rem;color:#f2d98c;white-space:nowrap}
+.sh-btn{display:inline-flex;align-items:center;gap:.45rem;padding:.55rem .85rem;border-radius:10px;border:1px solid rgba(255,220,130,.5);background:linear-gradient(135deg,#e8c97a,#f59e0b);color:#0c0f1a;font:inherit;font-size:11px;font-weight:800;letter-spacing:.06em;cursor:pointer;transition:.15s;white-space:nowrap}
+.sh-btn i{font-style:normal}
+.sh-btn:hover:not(:disabled){filter:brightness(1.08);transform:translateY(-1px)}
+.sh-btn.short{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.16);color:rgba(248,247,244,.6)}
+.sh-btn:disabled{opacity:.6;cursor:wait}
+.sh-progress{height:3px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden}
+.sh-progress i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,#e8c97a,#f59e0b)}
+.sh-empty{padding:2.5rem 1rem;text-align:center;font-size:13.5px;color:rgba(248,247,244,.5)}
+
+@media(max-width:760px){.sh-stats{grid-template-columns:1fr 1fr}.sh-stat.gold{grid-column:1 / -1}.sh-card-wrap{padding:.9rem}}
+@media(max-width:480px){.sh-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}.sh-avatar{width:104px;height:104px}.sh-buy{flex-direction:column;align-items:stretch}.sh-price{text-align:center}.sh-btn{justify-content:center}}
