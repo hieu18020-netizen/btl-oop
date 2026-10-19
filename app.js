@@ -1568,8 +1568,8 @@ const CHIBI_GALLERY = [
       speed: 90,          // px/giây — tốc độ chạy riêng chibi 3
       fps: 12,            // khung hình/giây
       baseFacing: "left", // ảnh gốc chó quay mặt sang trái
-      spriteWidth: 260,   // độ rộng hiển thị (px) — tăng số này để chó to ra, giảm để nhỏ lại
-      bottomOffset: 0,    // cách đáy màn hình (px) — số nhỏ/âm thì chó đứng thấp xuống
+      spriteWidth: 150,   // độ rộng hiển thị (px) — tăng số này để chó to ra, giảm để nhỏ lại
+      bottomOffset: -12,    // cách đáy màn hình (px) — số nhỏ/âm thì chó đứng thấp xuống
     },
   },
 ];
