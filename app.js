@@ -1572,6 +1572,22 @@ const CHIBI_GALLERY = [
       bottomOffset: -12,    // cách đáy màn hình (px) — số nhỏ/âm thì chó đứng thấp xuống
     },
   },
+  {
+    code: "4", name: "Ahri", desc: "Hồ ly chín đuôi quyến rũ",
+    rarity: "Sử thi", element: "dark",
+    frontImage: "chibi/4/chinhdien.png",
+    frameCount: 12, // chibi/4 có frame_001 .. frame_012 = 12 khung chạy
+    // Giữ nguyên tên file gốc (frame_001.png .. frame_012.png).
+    frameFileName: (i) => `frame_${String(i).padStart(3, "0")}.png`,
+    // Config riêng của chibi 4 — đổi số ở đây không ảnh hưởng chibi khác.
+    runnerConfig: {
+      speed: 80,          // px/giây — tốc độ chạy riêng của Ahri
+      fps: 12,            // khung hình/giây
+      baseFacing: "left", // ảnh gốc Ahri quay mặt/đi sang trái
+      spriteWidth: 220,   // độ rộng hiển thị (px) — tăng số này để Ahri to ra, giảm để nhỏ lại
+      bottomOffset: -4,   // cách đáy màn hình (px) — số nhỏ/âm thì Ahri đứng thấp xuống
+    },
+  },
 ];
 
 // Chibi mặc định ai cũng có ngay khi đăng ký (khớp chibi_characters.is_default = 1 trong DB): Eruka.
