@@ -1,5 +1,5 @@
 // ==================== SNAKE.JS ====================
-// Game Rắn săn mồi — module có thể mount/unmount nhiều lần trong SPA (app.js),
+// Game Rắn săn mồi (giao diện "Neon Arcade") — module có thể mount/unmount nhiều lần trong SPA (app.js),
 // cùng giao diện lập trình với TetrisGame.
 //
 // Sử dụng: SnakeGame.mount(containerEl, {
@@ -7,6 +7,7 @@
 //            onGoHome()       -> về trang chủ
 //            onStart()        -> (tuỳ chọn) gọi mỗi khi chơi LẠI, để xin phiên chơi mới từ server
 //            highScore        -> (tuỳ chọn) kỷ lục hiện tại để hiển thị
+//            rank             -> (tuỳ chọn) hạng hiện tại, vd "#17"
 //          });
 //          SnakeGame.unmount(); // gọi khi rời màn game để dọn timer/listener
 
@@ -21,6 +22,7 @@ const SnakeGame = (function () {
   const BONUS_TTL = 35;           // mồi vàng tồn tại 35 bước đi rồi biến mất
   const FOODS_PER_LEVEL = 5;      // ăn 5 mồi lên 1 cấp
   const MIN_SUBMIT_MS = 2500;     // ván ngắn hơn mức này sẽ không nộp điểm (server từ chối ván < 2s)
+  const MILESTONE = 100;          // thanh tiến độ điểm: mỗi mốc 100 điểm
 
   const speedFor = (level) => Math.max(65, 150 - (level - 1) * 10); // ms / bước
 
@@ -28,6 +30,17 @@ const SnakeGame = (function () {
     up: { x: 0, y: -1 }, down: { x: 0, y: 1 },
     left: { x: -1, y: 0 }, right: { x: 1, y: 0 },
   };
+
+  // Thử thách mỗi ngày (chỉ hiển thị trên máy này, không ảnh hưởng điểm/xếp hạng).
+  // Mỗi ngày chọn 1 thử thách cố định theo ngày; tiến độ là thành tích tốt nhất trong ngày.
+  const CHALLENGES = [
+    { id: 'length', label: 'Đạt độ dài 15',     target: 15,  get: (st) => st.snake.length },
+    { id: 'score',  label: 'Đạt 200 điểm',      target: 200, get: (st) => st.score },
+    { id: 'eat',    label: 'Ăn 12 mồi trong một ván', target: 12, get: (st) => st.eaten },
+    { id: 'level',  label: 'Lên cấp độ 4',      target: 4,   get: (st) => st.level },
+    { id: 'gold',   label: 'Ăn 2 mồi vàng',    target: 2,   get: (st) => st.golds },
+  ];
+  const DAILY_KEY = 'snake_daily_v1';
 
   // ── trạng thái (mỗi lần mount) ──
   let state = null;
@@ -40,7 +53,33 @@ const SnakeGame = (function () {
   let onGoHomeCb = null;
   let onStartCb = null;
   let bestScore = 0;
+  let rankText = '—';
   let roundsPlayed = 0;
+  let challenge = null;      // thử thách hôm nay
+  let challengeBest = 0;     // tiến độ tốt nhất trong ngày
+
+  // ── thử thách ngày (localStorage chỉ là tiện ích, lỗi thì bỏ qua) ──
+  function todayKey() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function pickChallenge() {
+    const d = new Date();
+    const n = d.getFullYear() * 372 + (d.getMonth() + 1) * 31 + d.getDate();
+    return CHALLENGES[n % CHALLENGES.length];
+  }
+  function loadChallengeBest() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(DAILY_KEY) || 'null');
+      if (raw && raw.day === todayKey() && raw.id === challenge.id) return Number(raw.best) || 0;
+    } catch (e) { /* bỏ qua */ }
+    return 0;
+  }
+  function saveChallengeBest(v) {
+    try {
+      localStorage.setItem(DAILY_KEY, JSON.stringify({ day: todayKey(), id: challenge.id, best: v }));
+    } catch (e) { /* bỏ qua */ }
+  }
 
   function freshState() {
     const cx = Math.floor(COLS / 2), cy = Math.floor(ROWS / 2);
@@ -54,6 +93,7 @@ const SnakeGame = (function () {
       bonus: null,          // { x, y, ttl }
       score: 0,
       eaten: 0,             // số mồi thường đã ăn
+      golds: 0,             // số mồi vàng đã ăn
       level: 1,
       started: false, paused: false, gameOver: false, won: false,
       startedAt: 0,
@@ -77,35 +117,92 @@ const SnakeGame = (function () {
   }
 
   // ── giao diện ──
+  // Font tiêu đề (hỗ trợ tiếng Việt). Nạp 1 lần; nếu mạng lỗi thì dùng font hệ thống.
+  function ensureFont() {
+    if (document.getElementById('snake-font')) return;
+    const l = document.createElement('link');
+    l.id = 'snake-font';
+    l.rel = 'stylesheet';
+    l.href = 'https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&display=swap';
+    document.head.appendChild(l);
+  }
+
   function html() {
     return `
-    <div class="snake-wrap">
-      <div class="snake-title">RẮN SĂN MỒI</div>
-      <div class="snake-game">
-        <div class="snake-panel">
-          <div class="snake-box"><div class="snake-box-label">ĐIỂM</div><div class="snake-box-value" data-el="score">0</div></div>
-          <div class="snake-box"><div class="snake-box-label">KỶ LỤC</div><div class="snake-box-value" data-el="best">0</div></div>
-          <div class="snake-box"><div class="snake-box-label">ĐỘ DÀI</div><div class="snake-box-value" data-el="length">${START_LEN}</div></div>
-        </div>
-        <div class="snake-board-outer" data-el="boardOuter">
-          <canvas class="snake-canvas" data-el="canvas"></canvas>
-          <div class="snake-overlay" data-el="overlay"><div class="snake-overlay-inner" data-el="overlayContent"></div></div>
-        </div>
-        <div class="snake-panel">
-          <div class="snake-box"><div class="snake-box-label">CẤP ĐỘ</div><div class="snake-box-value" data-el="level">1</div></div>
-          <div class="snake-box">
-            <div class="snake-box-label">ĐIỀU KHIỂN</div>
-            <div class="snake-ctrl-row"><span class="snake-key">← ↑ ↓ →</span><span>Di chuyển</span></div>
-            <div class="snake-ctrl-row"><span class="snake-key">W A S D</span><span>Di chuyển</span></div>
-            <div class="snake-ctrl-row"><span class="snake-key">Space</span><span>Bắt đầu</span></div>
-            <div class="snake-ctrl-row"><span class="snake-key">P</span><span>Tạm dừng</span></div>
-            <div class="snake-ctrl-row"><span class="snake-key snake-key-gold">●</span><span>Mồi vàng +${BONUS_SCORE}</span></div>
+    <div class="sn-wrap">
+      <header class="sn-head">
+        <div class="sn-brand">
+          <div class="sn-logo"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="9" width="4" height="8" rx="2"/><rect x="10" y="5" width="4" height="14" rx="2"/><rect x="16" y="8" width="4" height="9" rx="2"/></svg></div>
+          <div>
+            <div class="sn-eyebrow">NEON ARCADE</div>
+            <h2 class="sn-title">RẮN SĂN MỒI</h2>
           </div>
-          <button class="snake-exit-btn" data-el="pauseBtn">⏸ Tạm dừng</button>
-          <button class="snake-exit-btn" data-el="exitBtn">← Thoát &amp; lưu điểm</button>
         </div>
+        <div class="sn-head-right">
+          <button class="sn-hbtn" data-el="pauseBtn">⏸ Tạm dừng</button>
+          <button class="sn-hbtn" data-el="exitBtn">← Thoát &amp; lưu điểm</button>
+          <div class="sn-status ready" data-el="status"><i></i><span data-el="statusText">SẴN SÀNG</span></div>
+        </div>
+      </header>
+
+      <div class="sn-stage">
+        <aside class="sn-col sn-left">
+          <div class="sn-sec"><span>THÀNH TÍCH</span><em>LIVE</em></div>
+          <div class="sn-card sn-score-card">
+            <div class="sn-label">ĐIỂM HIỆN TẠI</div>
+            <div class="sn-score" data-el="score">000</div>
+            <div class="sn-bar"><i data-el="scoreBar"></i></div>
+            <div class="sn-hint" data-el="scoreHint">Còn ${MILESTONE} điểm tới mốc ${MILESTONE}</div>
+          </div>
+          <div class="sn-tiles">
+            <div class="sn-tile rec"><div class="sn-label">KỶ LỤC</div><div class="sn-val" data-el="best">0</div></div>
+            <div class="sn-tile"><div class="sn-label">ĐỘ DÀI</div><div class="sn-val" data-el="length">${START_LEN}</div></div>
+            <div class="sn-tile"><div class="sn-label">CẤP ĐỘ</div><div class="sn-val" data-el="level">1</div></div>
+            <div class="sn-tile"><div class="sn-label">XẾP HẠNG</div><div class="sn-val" data-el="rank">—</div></div>
+          </div>
+          <div class="sn-tip">
+            <span class="sn-tip-i">i</span>
+            <div><b>Mẹo nhỏ</b><p>Ăn càng nhiều, tốc độ di chuyển càng tăng. Mồi vàng +${BONUS_SCORE} điểm nhưng sẽ biến mất sau ít bước.</p></div>
+          </div>
+        </aside>
+
+        <section class="sn-center">
+          <div class="sn-meta"><span>KHU VỰC 01</span><span class="sn-signal" data-el="signal"><i></i><b data-el="signalText">TÍN HIỆU ỔN ĐỊNH</b></span></div>
+          <div class="sn-board" data-el="boardOuter">
+            <span class="sn-corner tl"></span><span class="sn-corner tr"></span><span class="sn-corner bl"></span><span class="sn-corner br"></span>
+            <canvas class="sn-canvas" data-el="canvas"></canvas>
+            <div class="sn-overlay" data-el="overlay"><div class="sn-overlay-inner" data-el="overlayContent"></div></div>
+          </div>
+          <div class="sn-meta sn-foot"><span>GRID ${COLS} × ${ROWS}</span><span data-el="spaceHint">Bắt đầu <kbd>SPACE</kbd></span></div>
+        </section>
+
+        <aside class="sn-col sn-right">
+          <div class="sn-sec"><span>ĐIỀU KHIỂN</span><em class="dim">BÀN PHÍM</em></div>
+          <div class="sn-card sn-keys-card">
+            <div class="sn-arrows">
+              <kbd class="up">↑</kbd><kbd class="lf">←</kbd><kbd class="dn">↓</kbd><kbd class="rt">→</kbd>
+            </div>
+            <div class="sn-key-title">Di chuyển</div>
+            <div class="sn-key-sub">Sử dụng các phím mũi tên để điều hướng.</div>
+          </div>
+          <div class="sn-keyrow">
+            <div class="sn-wasd"><kbd class="w">W</kbd><kbd class="a">A</kbd><kbd class="s">S</kbd><kbd class="d">D</kbd></div>
+            <div><div class="sn-key-title">Thay thế</div><div class="sn-key-sub spaced">WASD</div></div>
+          </div>
+          <div class="sn-keyrow">
+            <kbd class="sn-space">SPACE</kbd>
+            <div><div class="sn-key-title">Tạm dừng</div><div class="sn-key-sub">Dừng / tiếp tục</div></div>
+          </div>
+          <div class="sn-challenge" data-el="challenge">
+            <div class="sn-label">THỬ THÁCH HÔM NAY</div>
+            <div class="sn-ch-title" data-el="chTitle">—</div>
+            <div class="sn-bar"><i data-el="chBar"></i></div>
+            <div class="sn-ch-num" data-el="chNum">0 / 0</div>
+          </div>
+        </aside>
       </div>
-      <div class="snake-dpad" data-el="dpad">
+
+      <div class="sn-dpad" data-el="dpad">
         <button data-dir="up" aria-label="Lên">▲</button>
         <button data-dir="left" aria-label="Trái">◀</button>
         <button data-dir="down" aria-label="Xuống">▼</button>
@@ -120,8 +217,6 @@ const SnakeGame = (function () {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     dom.canvas.width = W * dpr;
     dom.canvas.height = H * dpr;
-    dom.canvas.style.width = W + 'px';
-    dom.canvas.style.height = H + 'px';
     dom.ctx = dom.canvas.getContext('2d');
     dom.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
@@ -146,17 +241,15 @@ const SnakeGame = (function () {
     if (!dom || !state) return;
     const ctx = dom.ctx;
 
-    // nền + lưới mờ kiểu bàn cờ
-    ctx.fillStyle = '#04061a';
+    // nền + lưới mờ
+    ctx.fillStyle = '#080626';
     ctx.fillRect(0, 0, W, H);
-    for (let y = 0; y < ROWS; y++) {
-      for (let x = 0; x < COLS; x++) {
-        if ((x + y) % 2 === 0) {
-          ctx.fillStyle = 'rgba(52,211,153,.035)';
-          ctx.fillRect(x * CELL, y * CELL, CELL, CELL);
-        }
-      }
-    }
+    ctx.strokeStyle = 'rgba(124,108,255,.07)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = 1; x < COLS; x++) { ctx.moveTo(x * CELL + .5, 0); ctx.lineTo(x * CELL + .5, H); }
+    for (let y = 1; y < ROWS; y++) { ctx.moveTo(0, y * CELL + .5); ctx.lineTo(W, y * CELL + .5); }
+    ctx.stroke();
 
     // mồi thường
     const f = state.food;
@@ -164,7 +257,7 @@ const SnakeGame = (function () {
       const cx = f.x * CELL + CELL / 2, cy = f.y * CELL + CELL / 2;
       ctx.save();
       ctx.shadowColor = '#fb7185';
-      ctx.shadowBlur = 14;
+      ctx.shadowBlur = 16;
       const g = ctx.createRadialGradient(cx - 3, cy - 3, 1, cx, cy, CELL / 2 - 3);
       g.addColorStop(0, '#fecdd3');
       g.addColorStop(1, '#f43f5e');
@@ -201,8 +294,11 @@ const SnakeGame = (function () {
     // thân rắn: vẽ từng cặp đốt liền nhau thành 1 "viên thuốc" cho liền mạch
     const snake = state.snake, n = snake.length;
     const dead = state.gameOver && !state.won;
-    const headColor = dead ? '#fb7185' : '#6ee7b7';
-    const tailColor = dead ? '#9f1239' : '#047857';
+    const headColor = dead ? '#fb7185' : '#a89cff';
+    const tailColor = dead ? '#7f1d3a' : '#3a2fc0';
+    ctx.save();
+    ctx.shadowColor = dead ? 'rgba(251,113,133,.55)' : 'rgba(124,108,255,.55)';
+    ctx.shadowBlur = 10;
     for (let i = n - 1; i >= 0; i--) {
       const a = snake[i];
       const nb = snake[i - 1] || a;
@@ -215,6 +311,7 @@ const SnakeGame = (function () {
       roundRect(ctx, x, y, w, h, 7);
       ctx.fill();
     }
+    ctx.restore();
 
     // đầu rắn: mắt nhìn theo hướng đi
     const hd = snake[0];
@@ -226,23 +323,58 @@ const SnakeGame = (function () {
       const ey = hy + d.y * 4 + py * 5 * side;
       ctx.fillStyle = '#fff';
       ctx.beginPath(); ctx.arc(ex, ey, 3.2, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#04061a';
+      ctx.fillStyle = '#080626';
       ctx.beginPath(); ctx.arc(ex + d.x * 1.2, ey + d.y * 1.2, 1.6, 0, Math.PI * 2); ctx.fill();
     }
+  }
 
-    // viền khung
-    ctx.strokeStyle = 'rgba(52,211,153,.25)';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(.5, .5, W - 1, H - 1);
+  // ── HUD ──
+  function fmtScore(n) {
+    return n < 1000 ? String(n).padStart(3, '0') : n.toLocaleString();
+  }
+
+  // Cập nhật nhãn trạng thái ở tiêu đề, dòng gợi ý phím Space và "tín hiệu" trên bàn chơi.
+  function setPhase(phase) {
+    if (!dom) return;
+    const map = {
+      ready:   { text: 'SẴN SÀNG',  signal: 'TÍN HIỆU ỔN ĐỊNH', hint: 'Bắt đầu' },
+      playing: { text: 'ĐANG CHƠI', signal: 'ĐANG TRUYỀN DỮ LIỆU', hint: 'Tạm dừng' },
+      paused:  { text: 'TẠM DỪNG',  signal: 'TÍN HIỆU TẠM NGẮT', hint: 'Tiếp tục' },
+      over:    { text: 'KẾT THÚC',  signal: 'MẤT TÍN HIỆU', hint: 'Chơi lại' },
+    };
+    const m = map[phase] || map.ready;
+    dom.status.className = 'sn-status ' + phase;
+    dom.statusText.textContent = m.text;
+    dom.signal.className = 'sn-signal ' + phase;
+    dom.signalText.textContent = m.signal;
+    dom.spaceHint.innerHTML = m.hint + ' <kbd>SPACE</kbd>';
+  }
+
+  function updateChallenge() {
+    if (!dom || !state || !challenge) return;
+    const cur = challenge.get(state);
+    if (cur > challengeBest) { challengeBest = cur; saveChallengeBest(cur); }
+    const shown = Math.min(challengeBest, challenge.target);
+    const done = challengeBest >= challenge.target;
+    dom.challenge.classList.toggle('done', done);
+    dom.chTitle.textContent = challenge.label;
+    dom.chBar.style.width = (shown / challenge.target * 100) + '%';
+    dom.chNum.textContent = done ? '✓ Hoàn thành' : shown + ' / ' + challenge.target;
   }
 
   function updateHud() {
     if (!dom || !state) return;
-    dom.score.textContent = state.score.toLocaleString();
+    dom.score.textContent = fmtScore(state.score);
+    const into = state.score % MILESTONE;
+    dom.scoreBar.style.width = (into / MILESTONE * 100) + '%';
+    const next = (Math.floor(state.score / MILESTONE) + 1) * MILESTONE;
+    dom.scoreHint.textContent = 'Còn ' + (next - state.score).toLocaleString() + ' điểm tới mốc ' + next.toLocaleString();
     dom.best.textContent = Math.max(bestScore, state.score).toLocaleString();
     dom.length.textContent = state.snake.length;
     dom.level.textContent = state.level;
+    dom.rank.textContent = rankText;
     dom.pauseBtn.textContent = state.paused ? '▶ Tiếp tục' : '⏸ Tạm dừng';
+    updateChallenge();
   }
 
   // ── overlay ──
@@ -258,18 +390,19 @@ const SnakeGame = (function () {
 
   function showStartScreen() {
     showOverlay(`
-      <div class="snake-overlay-title">RẮN SĂN MỒI</div>
-      <div class="snake-overlay-sub">Ăn mồi để lớn lên · đừng đâm tường hay tự cắn mình</div>
-      <button class="snake-start-btn" data-el="startBtn">BẮT ĐẦU</button>
-      <div class="snake-overlay-sub dim">hoặc nhấn SPACE</div>`);
+      <div class="sn-ov-eyebrow">SẴN SÀNG?</div>
+      <div class="sn-ov-title">BẮT ĐẦU CUỘC SĂN</div>
+      <div class="sn-ov-sub">Dùng phím mũi tên hoặc WASD để di chuyển</div>
+      <button class="sn-btn" data-el="startBtn"><span>BẮT ĐẦU CHƠI</span><i>→</i></button>`);
     q(dom.overlayContent, 'startBtn').onclick = startGame;
   }
 
   function showPauseScreen() {
     showOverlay(`
-      <div class="snake-overlay-title paused">TẠM DỪNG</div>
-      <button class="snake-start-btn" data-el="resumeBtn">TIẾP TỤC</button>
-      <div class="snake-overlay-sub dim">hoặc nhấn P</div>`);
+      <div class="sn-ov-eyebrow amber">TẠM DỪNG</div>
+      <div class="sn-ov-title">ĐANG NGHỈ NGƠI</div>
+      <div class="sn-ov-sub">Nhấn SPACE hoặc P để tiếp tục</div>
+      <button class="sn-btn" data-el="resumeBtn"><span>TIẾP TỤC</span><i>→</i></button>`);
     q(dom.overlayContent, 'resumeBtn').onclick = togglePause;
   }
 
@@ -321,6 +454,7 @@ const SnakeGame = (function () {
     }
     if (ateBonus) {
       st.score += BONUS_SCORE;
+      st.golds++;
       st.bonus = null;
     }
 
@@ -345,6 +479,7 @@ const SnakeGame = (function () {
     state.started = true;
     state.startedAt = Date.now();
     hideOverlay();
+    setPhase('playing');
     updateHud();
     draw();
     schedule();
@@ -362,8 +497,8 @@ const SnakeGame = (function () {
   function togglePause() {
     if (!state || !state.started || state.gameOver) return;
     state.paused = !state.paused;
-    if (state.paused) { stopLoop(); showPauseScreen(); }
-    else { hideOverlay(); schedule(); }
+    if (state.paused) { stopLoop(); showPauseScreen(); setPhase('paused'); }
+    else { hideOverlay(); setPhase('playing'); schedule(); }
     updateHud();
   }
 
@@ -372,6 +507,7 @@ const SnakeGame = (function () {
     stopLoop();
     state.gameOver = true;
     state.won = !!won;
+    setPhase('over');
     updateHud();
     draw();
     handleGameOver();
@@ -390,6 +526,8 @@ const SnakeGame = (function () {
     const res = await submitIfEligible();
     if (!dom || state !== st) return; // đã unmount hoặc đã chơi lại trong lúc chờ
     if (res.stats && typeof res.stats.highScore === 'number') bestScore = res.stats.highScore;
+    if (res.stats && res.stats.rank) rankText = res.stats.rank;
+    updateHud();
     renderGameOverSummary(res);
   }
 
@@ -403,23 +541,26 @@ const SnakeGame = (function () {
   function renderGameOverSummary(res) {
     const stats = res.stats;
     const finalScore = state.score.toLocaleString();
-    const rankText = (stats && stats.rank) ? stats.rank : '—';
+    const rank = (stats && stats.rank) ? stats.rank : '—';
     const highText = (stats && typeof stats.highScore === 'number')
       ? stats.highScore.toLocaleString()
       : Math.max(bestScore, state.score).toLocaleString();
     const note = res.skipped
-      ? '<div class="snake-overlay-sub dim">Ván quá ngắn hoặc 0 điểm nên không được lưu</div>' : '';
+      ? '<div class="sn-ov-sub dim">Ván quá ngắn hoặc 0 điểm nên không được lưu</div>' : '';
 
     showOverlay(`
-      <div class="snake-overlay-title ${state.won ? 'won' : 'over'}">${state.won ? 'CHIẾN THẮNG!' : 'GAME OVER'}</div>
-      <div class="snake-overlay-sub">TỔNG ĐIỂM: ${finalScore}</div>
-      <div class="snake-overlay-sub">ĐỘ DÀI: ${state.snake.length}</div>
-      <div class="snake-overlay-sub">KỶ LỤC: ${highText}</div>
-      <div class="snake-overlay-sub">XẾP HẠNG HIỆN TẠI: ${rankText}</div>
+      <div class="sn-ov-eyebrow ${state.won ? 'gold' : 'rose'}">${state.won ? 'CHIẾN THẮNG' : 'KẾT THÚC CUỘC SĂN'}</div>
+      <div class="sn-ov-title ${state.won ? 'won' : 'over'}">${state.won ? 'CHIẾN THẮNG!' : 'GAME OVER'}</div>
+      <div class="sn-ov-stats">
+        <div><span>ĐIỂM</span><b>${finalScore}</b></div>
+        <div><span>ĐỘ DÀI</span><b>${state.snake.length}</b></div>
+        <div><span>KỶ LỤC</span><b>${highText}</b></div>
+        <div><span>XẾP HẠNG</span><b>${rank}</b></div>
+      </div>
       ${note}
-      <div class="snake-gameover-actions">
-        <button class="snake-start-btn" data-el="replayBtn">CHƠI LẠI</button>
-        <button class="snake-exit-btn" data-el="homeBtn">VỀ TRANG CHỦ</button>
+      <div class="sn-ov-actions">
+        <button class="sn-btn" data-el="replayBtn"><span>CHƠI LẠI</span><i>→</i></button>
+        <button class="sn-btn ghost" data-el="homeBtn"><span>VỀ TRANG CHỦ</span></button>
       </div>`, true);
     state.summaryShown = true;
     q(dom.overlayContent, 'replayBtn').onclick = startGame;
@@ -436,12 +577,13 @@ const SnakeGame = (function () {
     if (!state) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
 
+    // SPACE / Enter: bắt đầu / chơi lại khi chưa chơi; đang chơi thì tạm dừng, đang tạm dừng thì tiếp tục.
     if (e.key === ' ' || e.key === 'Enter') {
       if (e.repeat) return;
       if (!state.started || (state.gameOver && state.summaryShown)) {
         e.preventDefault();
         startGame();
-      } else if (state.paused) {
+      } else if (!state.gameOver) {
         e.preventDefault();
         togglePause();
       }
@@ -480,8 +622,12 @@ const SnakeGame = (function () {
     onGoHomeCb = opts.onGoHome || null;
     onStartCb = opts.onStart || null;
     bestScore = Number(opts.highScore) || 0;
+    rankText = opts.rank && opts.rank !== '#-' ? String(opts.rank) : '—';
     roundsPlayed = 0;
+    challenge = pickChallenge();
+    challengeBest = loadChallengeBest();
 
+    ensureFont();
     containerEl.innerHTML = html();
     dom = {
       boardOuter: q(containerEl, 'boardOuter'),
@@ -489,9 +635,21 @@ const SnakeGame = (function () {
       overlay: q(containerEl, 'overlay'),
       overlayContent: q(containerEl, 'overlayContent'),
       score: q(containerEl, 'score'),
+      scoreBar: q(containerEl, 'scoreBar'),
+      scoreHint: q(containerEl, 'scoreHint'),
       best: q(containerEl, 'best'),
       length: q(containerEl, 'length'),
       level: q(containerEl, 'level'),
+      rank: q(containerEl, 'rank'),
+      status: q(containerEl, 'status'),
+      statusText: q(containerEl, 'statusText'),
+      signal: q(containerEl, 'signal'),
+      signalText: q(containerEl, 'signalText'),
+      spaceHint: q(containerEl, 'spaceHint'),
+      challenge: q(containerEl, 'challenge'),
+      chTitle: q(containerEl, 'chTitle'),
+      chBar: q(containerEl, 'chBar'),
+      chNum: q(containerEl, 'chNum'),
       exitBtn: q(containerEl, 'exitBtn'),
       pauseBtn: q(containerEl, 'pauseBtn'),
       dpad: q(containerEl, 'dpad'),
@@ -500,6 +658,7 @@ const SnakeGame = (function () {
     state = freshState();
     updateHud();
     draw();
+    setPhase('ready');
     showStartScreen();
 
     dom.exitBtn.onclick = () => { stopLoop(); exitToHome(); };
