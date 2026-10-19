@@ -1565,9 +1565,11 @@ const CHIBI_GALLERY = [
     // Runner đếm i = 1..frameCount, còn file bắt đầu từ frame_002 nên cộng 1.
     frameFileName: (i) => `frame_${String(i + 1).padStart(3, "0")}.png`,
     runnerConfig: {
-      speed: 90,          // px/giây
+      speed: 90,          // px/giây — tốc độ chạy riêng chibi 3
       fps: 12,            // khung hình/giây
       baseFacing: "left", // ảnh gốc chó quay mặt sang trái
+      spriteWidth: 260,   // độ rộng hiển thị (px) — tăng số này để chó to ra, giảm để nhỏ lại
+      bottomOffset: 0,    // cách đáy màn hình (px) — số nhỏ/âm thì chó đứng thấp xuống
     },
   },
 ];
