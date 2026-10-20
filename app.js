@@ -1576,7 +1576,7 @@ const CHIBI_GALLERY = [
     code: "4", name: "Ahri", desc: "Hồ ly chín đuôi quyến rũ",
     rarity: "Sử thi", element: "dark",
     frontImage: "chibi/4/chinhdien.png",
-    frameCount: 12, // chibi/4 có frame_001 .. frame_012 = 12 khung chạy
+    frameCount: 96, // chibi/4 có frame_001 .. frame_012 = 12 khung chạy
     // Giữ nguyên tên file gốc (frame_001.png .. frame_012.png).
     frameFileName: (i) => `frame_${String(i).padStart(3, "0")}.png`,
     // Config riêng của chibi 4 — đổi số ở đây không ảnh hưởng chibi khác.
