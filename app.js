@@ -274,7 +274,7 @@ async function restoreSession(){
   s.token = saved.token || "";
   s.view = RESTORABLE_VIEWS.includes(saved.view) ? saved.view : "home";
   s.selectedGame = saved.selectedGame || "tetris";
-  s.activeChibiCodes = new Set(saved.activeChibiCodes || (saved.activeChibiCode ? [saved.activeChibiCode] : []));
+  s.activeChibiCodes = onlyOneChibi(saved.activeChibiCodes || (saved.activeChibiCode ? [saved.activeChibiCode] : []));
   applyChibiRunnerState(); // chạy lạc quan ngay từ dữ liệu đã lưu, không cần đợi mạng
   render();
 
@@ -287,7 +287,7 @@ async function restoreSession(){
     s.userHighScore = data.high_score || 0;
     s.userSnakeScore = data.snake_score || 0;
     if (data.avatar) s.avatar = data.avatar;
-    s.activeChibiCodes = new Set(data.active_chibi_codes || []);
+    s.activeChibiCodes = onlyOneChibi(data.active_chibi_codes);
     applyChibiRunnerState(); // đồng bộ lại theo dữ liệu thật từ server (phòng khi đổi từ máy khác)
     saveSession();
     fetchLeaderboard();
@@ -346,7 +346,7 @@ async function fetchUserStats() {
       s.userPublicId = data.public_id || "--------";
       if (data.avatar) s.avatar = data.avatar;
       if (data.active_chibi_codes !== undefined) {
-        const incoming = new Set(data.active_chibi_codes || []);
+        const incoming = onlyOneChibi(data.active_chibi_codes);
         const same = incoming.size === s.activeChibiCodes.size && Array.from(incoming).every(c => s.activeChibiCodes.has(c));
         if (!same) {
           s.activeChibiCodes = incoming;
@@ -1641,14 +1641,13 @@ async function useChibi(code){
   if (!s.token) { alert("Vui lòng đăng nhập để sử dụng chibi"); return; }
   if (!isChibiUnlocked(code)) { alert("Chibi này chưa được mở khoá"); return; }
 
-  const wasActive = s.activeChibiCodes.has(code);
-  const willBeActive = !wasActive;
+  const prevCodes = new Set(s.activeChibiCodes);   // để hoàn tác nếu lưu lỗi
+  const willBeActive = !prevCodes.has(code);
 
-  // Cập nhật ngay cho mượt, không cần đợi server trả lời
-  if (willBeActive) s.activeChibiCodes.add(code);
-  else s.activeChibiCodes.delete(code);
+  // Chỉ cho chạy 1 chibi: bật chibi này thì tắt hết các chibi khác
+  s.activeChibiCodes = willBeActive ? new Set([code]) : new Set();
   applyChibiRunnerState();
-  updateChibiUseBtn(code);
+  refreshAllChibiUseBtns(prevCodes, code);
 
   try {
     const res = await authFetch(`${API_URL}/set-active-chibi`, {
@@ -1663,13 +1662,21 @@ async function useChibi(code){
     saveSession();
   } catch (err) {
     console.error("Lỗi khi chọn chibi:", err);
-    // Lưu thất bại -> quay lại trạng thái cũ
-    if (willBeActive) s.activeChibiCodes.delete(code);
-    else s.activeChibiCodes.add(code);
+    s.activeChibiCodes = prevCodes;
     applyChibiRunnerState();
-    updateChibiUseBtn(code);
+    refreshAllChibiUseBtns(prevCodes, code);
     alert(err.message || "Không thể lưu lựa chọn chibi, vui lòng thử lại.");
   }
+}
+
+// Cập nhật nút "Sử dụng / Đi ngủ đi" của mọi chibi bị ảnh hưởng
+function refreshAllChibiUseBtns(prevCodes, clickedCode){
+  new Set([...prevCodes, clickedCode]).forEach(updateChibiUseBtn);
+}
+
+// Chỉ giữ lại 1 chibi (phòng dữ liệu cũ còn lưu nhiều chibi)
+function onlyOneChibi(codes){
+  return new Set(Array.from(codes || []).slice(0, 1));
 }
 
 // Chỉ cập nhật đúng cái nút "Sử dụng/Đi ngủ đi" của 1 chibi tại chỗ, KHÔNG
@@ -2146,7 +2153,7 @@ async function doLogin(e){
       s.token = data.token || "";
       // Nếu tài khoản đã từng bấm "Sử dụng" các chibi trước đó, chạy lại đúng các chibi đó ngay khi đăng nhập.
       // Chưa từng chọn -> active_chibi_codes rỗng -> không chạy chibi nào cả.
-      s.activeChibiCodes = new Set(data.active_chibi_codes || []);
+      s.activeChibiCodes = onlyOneChibi(data.active_chibi_codes);
       applyChibiRunnerState();
       fetchChibis(); // lấy trạng thái khoá/mở khoá chibi của tài khoản này
       if (data.nickname && data.nickname.trim() !== "") {
