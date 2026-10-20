@@ -1473,8 +1473,8 @@ function homeView(){
 
 // ===== Màn danh sách trò chơi =====
 const GAMES = [
-  { id:"tetris",      name:"Tetris",        desc:"Xếp hình kinh điển — leo rank, phá kỷ lục điểm cao.", icon:"🟦", tag:"ARCADE",     color:"#00d4ff", playable:true  },
-  { id:"chess",       name:"Cờ Vua",        desc:"Cờ vua online 1vs1 qua mạng — tạo phòng và mời bạn bè vào đấu.", icon:"♟️", tag:"CHIẾN THUẬT", color:"#e8c97a", playable:true  },
+  { id:"tetris",      name:"Tetris",        desc:"Xếp hình kinh điển — leo rank, phá kỷ lục điểm cao.", icon:"🟦", tag:"ARCADE",     color:"#00d4ff", playable:true, ranked:true  },
+  { id:"chess",       name:"Cờ Vua",        desc:"Cờ vua online 1vs1 qua mạng — tạo phòng và mời bạn bè vào đấu.", icon:"♟️", tag:"CHIẾN THUẬT", color:"#e8c97a", playable:true, ranked:true  },
   { id:"snake",       name:"Rắn săn mồi",   desc:"Điều khiển con rắn, ăn mồi và tránh va chạm.",         icon:"🐍", tag:"ARCADE",     color:"#22c55e", playable:true  },
   { id:"2048",        name:"2048",          desc:"Trượt các ô số, kết hợp để đạt ô 2048.",               icon:"🔢", tag:"PUZZLE",     color:"#f97316", playable:false },
   { id:"flappy",      name:"Flappy Bird",   desc:"Vượt qua ống nước — kiểm tra phản xạ của bạn.",        icon:"🐦", tag:"PHẢN XẠ",    color:"#eab308", playable:false },
@@ -1493,6 +1493,7 @@ function gameCard(g){
       <span class="game-tag" style="color:${g.color};background:${g.color}1a;border-color:${g.color}55">${g.tag}</span>
     </div>
     <h3>${g.name}</h3>
+    ${g.ranked ? `<div style="display:inline-flex;align-items:center;gap:5px;align-self:flex-start;margin:-.15rem 0 .7rem;padding:3px 10px;font-size:11px;font-weight:600;color:#e8c97a;background:rgba(232,201,122,.12);border:1px solid rgba(232,201,122,.4);border-radius:999px">🏆 Tính xếp hạng</div>` : ""}
     <p>${g.desc}</p>
     ${btn}
   </div>`;
